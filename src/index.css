@@ -1,0 +1,59 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    background-color: #05080f;
+    color: #e2e8f0;
+    font-family: 'Inter', system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  ::-webkit-scrollbar { width: 5px; height: 5px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: #162033; border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: #1e3050; }
+
+  * { box-sizing: border-box; }
+}
+
+@layer components {
+  .glass {
+    background: rgba(13,21,37,0.8);
+    backdrop-filter: blur(12px);
+    border: 1px solid #162033;
+  }
+
+  .btn-primary {
+    @apply bg-blue-600 hover:bg-blue-500 text-white font-semibold px-5 py-2.5 rounded-lg
+           transition-all duration-150 text-sm disabled:opacity-50 disabled:cursor-not-allowed
+           active:scale-[0.98];
+  }
+
+  .btn-ghost {
+    @apply bg-transparent hover:bg-white/5 text-slate-400 hover:text-slate-200
+           border border-[#162033] hover:border-blue-500/30
+           font-medium px-4 py-2 rounded-lg transition-all duration-150 text-sm;
+  }
+
+  .btn-danger {
+    @apply bg-red-500/10 hover:bg-red-500/20 text-red-400 hover:text-red-300
+           border border-red-500/20 hover:border-red-500/40
+           px-3 py-1.5 rounded-lg transition-all duration-150 text-xs font-semibold;
+  }
+
+  .inp {
+    @apply bg-surface border border-[#162033] focus:border-blue-500/60 focus:ring-2 focus:ring-blue-500/10
+           text-slate-200 placeholder-slate-600 rounded-lg px-3.5 py-2.5 text-sm w-full
+           outline-none transition-all duration-150 font-sans;
+  }
+
+  .card {
+    @apply bg-card border border-[#162033] rounded-xl;
+  }
+
+  .badge {
+    @apply inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-semibold font-mono;
+  }
+}
