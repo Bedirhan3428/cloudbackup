@@ -131,8 +131,11 @@ export default function Dashboard() {
         <div className="space-y-5">
           {/* Agents */}
           <div className="card overflow-hidden">
-            <div className="px-4 py-3.5 border-b border-[#162033]">
+            <div className="flex items-center justify-between px-4 py-3.5 border-b border-[#162033]">
               <h2 className="font-semibold text-slate-200 text-sm">Bilgisayarlar</h2>
+              <button onClick={() => nav('/system-map')} className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1 transition-colors">
+                Sistem Haritası <ChevronRight className="w-3 h-3" />
+              </button>
             </div>
             <div className="p-4 space-y-3">
               {agents.length === 0 ? (

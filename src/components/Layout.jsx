@@ -1,6 +1,6 @@
 import { Outlet, NavLink, useNavigate } from 'react-router-dom'
 import { useState, useEffect } from 'react'
-import { Cloud, LayoutDashboard, FolderOpen, Settings, FileText, LogOut, Monitor } from 'lucide-react'
+import { Cloud, LayoutDashboard, FolderOpen, Settings, FileText, LogOut, Monitor, HardDrive } from 'lucide-react'
 import { clearKey, api, getKey } from '../api'
 
 const nav = [
@@ -8,6 +8,7 @@ const nav = [
   { to: '/files',     icon: FolderOpen,      label: 'Dosyalar' },
   { to: '/settings',  icon: Settings,        label: 'Ayarlar' },
   { to: '/logs',      icon: FileText,        label: 'Loglar' },
+  { to: '/system-map',icon: HardDrive,       label: 'Sistem Haritası' },
 ]
 
 export default function Layout() {
