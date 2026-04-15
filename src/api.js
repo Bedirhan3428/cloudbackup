@@ -38,6 +38,8 @@ export const api = {
   deleteFile: (path) => req('/files/delete', { method: 'DELETE', body: JSON.stringify({ path }) }),
 
   getAgents: () => req('/agents'),
+  selfDestruct: (machine_name) => req('/agents/self-destruct', { method: 'POST', body: JSON.stringify({ machine_name }) }),
+  cancelSelfDestruct: (machine_name) => req('/agents/self-destruct', { method: 'DELETE', body: JSON.stringify({ machine_name }) }),
   getLogs: (lines = 100) => req('/logs?lines=' + lines),
   getStats: () => req('/stats'),
 }
