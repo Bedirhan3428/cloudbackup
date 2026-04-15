@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react'
 import { api } from '../api'
-import { Search, Trash2, RefreshCw, ChevronLeft, ChevronRight, Filter } from 'lucide-react'
+import { Search, Trash2, Download, RefreshCw, ChevronLeft, ChevronRight, Filter } from 'lucide-react'
 
 function timeAgo(str) {
   if (!str) return '—'
@@ -20,6 +20,7 @@ export default function Files() {
   const [extList, setExtList]   = useState([])
   const [page, setPage]         = useState(1)
   const [deleting, setDeleting] = useState(null)
+  const [downloading, setDownloading] = useState(null)
   const [toast, setToast]       = useState(null)
   const PER = 50
 
@@ -38,6 +39,24 @@ export default function Files() {
   useEffect(() => { const t = setTimeout(() => load(1), 350); return () => clearTimeout(t) }, [search])
 
   function showToast(msg) { setToast(msg); setTimeout(() => setToast(null), 3000) }
+
+  async function handleDownload(f) {
+    setDownloading(f.path)
+    try {
+      const { url } = await api.getDownloadUrl(f.path)
+      // Tarayıcıda indirmeyi başlat
+      const link = document.createElement('a')
+      link.href = url
+      link.download = f.name
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      showToast('📥 İndirme başladı.')
+    } catch (e) {
+      showToast('❌ İndirme hatası: ' + e.message)
+    }
+    setDownloading(null)
+  }
 
   async function deleteFile(f) {
     if (!confirm(`"${f.name}" silinsin mi?`)) return
@@ -144,14 +163,24 @@ export default function Files() {
                 </td>
                 <td className="px-4 py-3 text-xs text-slate-600 whitespace-nowrap">{timeAgo(f.backup_time || f.updated)}</td>
                 <td className="pr-5 py-3">
-                  <button
-                    onClick={() => deleteFile(f)}
-                    disabled={deleting === f.path}
-                    className="opacity-0 group-hover:opacity-100 transition-opacity btn-danger flex items-center gap-1"
-                  >
-                    <Trash2 className="w-3 h-3" />
-                    {deleting === f.path ? '...' : 'Sil'}
-                  </button>
+                  <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button
+                      onClick={() => handleDownload(f)}
+                      disabled={downloading === f.path}
+                      className="btn-ghost p-1.5 text-blue-400 hover:bg-blue-500/10"
+                      title="İndir"
+                    >
+                      <Download className={`w-4 h-4 ${downloading === f.path ? 'animate-bounce' : ''}`} />
+                    </button>
+                    <button
+                      onClick={() => deleteFile(f)}
+                      disabled={deleting === f.path}
+                      className="btn-ghost p-1.5 text-rose-400 hover:bg-rose-500/10"
+                      title="Sil"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))}
