@@ -33,6 +33,7 @@ export const api = {
   saveConfig: (cfg) => req('/config', { method: 'POST', body: JSON.stringify(cfg) }),
 
   getFiles: (params = {}) => req('/files?' + new URLSearchParams(params)),
+  browseFiles: (dir = '') => req('/files/browse?dir=' + encodeURIComponent(dir)),
   getDownloadUrl: (path) => req('/files/download?path=' + encodeURIComponent(path)),
   deleteFile: (path) => req('/files/delete', { method: 'DELETE', body: JSON.stringify({ path }) }),
 

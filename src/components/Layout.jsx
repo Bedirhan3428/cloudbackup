@@ -114,7 +114,7 @@ export default function Layout() {
       </aside>
 
       {/* Content */}
-      <div className="ml-56 flex-1 min-h-screen">
+      <div className="ml-56 flex-1 h-screen overflow-auto">
         <Outlet />
       </div>
     </div>
