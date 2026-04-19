@@ -172,23 +172,21 @@ export const api = {
 
   selfDestruct: async (machine_name) => {
     const key = getKey();
-    await updateDoc(doc(db, 'accounts', key, 'data', 'self_destruct'), {
+    await setDoc(doc(db, 'accounts', key, 'data', 'self_destruct'), {
         [machine_name]: {
             status: 'pending',
             issued_at: new Date().toISOString(),
             acknowledged_at: null
         }
-    });
+    }, { merge: true });
     return { ok: true };
   },
 
   cancelSelfDestruct: async (machine_name) => {
     const key = getKey();
-    // Firebase delete field equivalent: setting to null or using deleteField()
-    // For simplicity, we can set to null or just update status
-    await updateDoc(doc(db, 'accounts', key, 'data', 'self_destruct'), {
+    await setDoc(doc(db, 'accounts', key, 'data', 'self_destruct'), {
         [machine_name]: null
-    });
+    }, { merge: true });
     return { ok: true };
   },
 
