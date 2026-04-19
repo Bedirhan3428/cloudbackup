@@ -200,7 +200,12 @@ export const api = {
         limit(lines)
     );
     const snap = await getDocs(q);
-    return snap.docs.map(doc => doc.data().text);
+    return {
+      logs: snap.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }))
+    };
   },
 
   getStats: async () => {

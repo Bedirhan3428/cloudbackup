@@ -44,7 +44,12 @@ export default function Logs() {
     return () => clearInterval(t)
   }, [lines, autoRefresh])
 
-  const filtered = filter === 'all' ? logs : logs.filter(l => l.level === filter)
+  const filtered = filter === 'all' ? logs : logs.filter(l => {
+    // Eğer log bir objeyse level'ına bak, metinse içinden yakalamaya çalış (geriye dönük uyumluluk)
+    const level = l.level || (typeof l === 'string' && l.includes('[ERROR]') ? 'error' : 
+                   typeof l === 'string' && l.includes('[WARN]') ? 'warn' : 'info')
+    return level === filter
+  })
 
   return (
     <div className="p-8">
@@ -97,14 +102,20 @@ export default function Logs() {
           {filtered.length === 0 ? (
             <div className="text-center text-slate-700 py-12">Henüz log yok</div>
           ) : (
-            filtered.map((line, i) => (
-              <div
-                key={i}
-                className={`py-0.5 px-2 rounded transition-colors ${LEVELS[line.level] || LEVELS.info} hover:bg-white/[0.03]`}
-              >
-                {line.text}
-              </div>
-            ))
+            filtered.map((logItem, i) => {
+              const text = typeof logItem === 'string' ? logItem : logItem.text
+              const level = logItem.level || (text.includes('[ERROR]') ? 'error' : 
+                            text.includes('[WARN]') ? 'warn' : 'info')
+              
+              return (
+                <div
+                  key={i}
+                  className={`py-0.5 px-2 rounded transition-colors ${LEVELS[level] || LEVELS.info} hover:bg-white/[0.03]`}
+                >
+                  {text}
+                </div>
+              )
+            })
           )}
           <div ref={bottomRef} />
         </div>
