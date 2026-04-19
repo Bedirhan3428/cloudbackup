@@ -98,13 +98,13 @@ export default function Settings() {
     let ext = val.trim().toLowerCase()
     if (!ext) return
     if (!ext.startsWith('.')) ext = '.' + ext
-    if (!cfg[key].includes(ext)) set(key, [...cfg[key], ext])
+    if (!(cfg[key] || []).includes(ext)) set(key, [...(cfg[key] || []), ext])
     type === 'allow' ? setNewAllow('') : setNewBlock('')
   }
 
   function removeExt(type, i) {
     const key = type === 'allow' ? 'allowed_extensions' : 'blocked_extensions'
-    set(key, cfg[key].filter((_, idx) => idx !== i))
+    set(key, (cfg[key] || []).filter((_, idx) => idx !== i))
   }
 
   function addPath() {
