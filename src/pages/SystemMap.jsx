@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { Monitor, HardDrive, Folder, ChevronRight, ChevronDown, User } from 'lucide-react'
 import { api } from '../api'
 
-// Recursive tree component maybe, or just 2 levels deep
+// Recursive tree component — handles the object structure from agent
 const DirectoryTree = ({ map }) => {
   if (!map || Object.keys(map).length === 0) {
     return <div className="text-sm text-slate-500 italic p-4">Klasör haritası bulunamadı veya boş.</div>
@@ -10,29 +10,48 @@ const DirectoryTree = ({ map }) => {
 
   return (
     <div className="space-y-4 p-4">
-      {Object.entries(map).map(([userName, folders]) => (
-        <div key={userName} className="bg-bg rounded-lg border border-[#162033] overflow-hidden">
-          <div className="flex items-center gap-2.5 px-4 py-3 border-b border-[#162033] bg-[#162033]/30">
-            <User className="w-4 h-4 text-emerald-400" />
-            <span className="font-medium text-slate-200 text-sm">{userName}</span>
-            <span className="text-xs text-slate-500 ml-auto">{folders.length} klasör</span>
+      {Object.entries(map).map(([userName, userData]) => {
+        // Paths objesini al (agent.py: user_info["paths"])
+        const paths = userData?.paths || {}
+        // Sadece gerçek klasör isimlerini al (is_onedrive flaglarını atla)
+        const folderNames = Object.keys(paths).filter(key => !key.endsWith('_is_onedrive'))
+        
+        return (
+          <div key={userName} className="bg-bg rounded-lg border border-[#162033] overflow-hidden">
+            <div className="flex items-center gap-2.5 px-4 py-3 border-b border-[#162033] bg-[#162033]/30">
+              <User className="w-4 h-4 text-emerald-400" />
+              <span className="font-medium text-slate-200 text-sm">{userName}</span>
+              <span className="text-xs text-slate-500 ml-auto">{folderNames.length} klasör</span>
+            </div>
+            <div className="p-3">
+              {folderNames.length === 0 ? (
+                <div className="text-xs text-slate-500 ml-6 py-1">İçerik yok</div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
+                  {folderNames.map(name => {
+                    const fullPath = paths[name]
+                    const isOnedrive = paths[`${name}_is_onedrive`]
+                    return (
+                      <div key={name} className="group relative">
+                        <div className="flex items-center gap-2.5 px-3 py-2 rounded-md hover:bg-white/[0.04] transition-colors border border-transparent hover:border-white/[0.05]">
+                          <Folder className={`w-4 h-4 ${isOnedrive ? 'text-blue-300' : 'text-blue-400'} fill-blue-400/20`} />
+                          <div className="flex flex-col min-w-0">
+                            <span className="text-sm text-slate-300 truncate font-medium">{name}</span>
+                            <span className="text-[10px] text-slate-500 truncate" title={fullPath}>{fullPath}</span>
+                          </div>
+                          {isOnedrive && (
+                            <span className="ml-auto text-[9px] bg-blue-500/10 text-blue-400 px-1.5 py-0.5 rounded border border-blue-500/20">Cloud</span>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
           </div>
-          <div className="p-3">
-            {folders.length === 0 ? (
-              <div className="text-xs text-slate-500 ml-6 py-1">İçerik yok</div>
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
-                {folders.map(folder => (
-                  <div key={folder} className="flex items-center gap-2.5 px-3 py-2 rounded-md hover:bg-white/[0.02] transition-colors border border-transparent hover:border-white/[0.05]">
-                    <Folder className="w-4 h-4 text-blue-400 fill-blue-400/20" />
-                    <span className="text-sm text-slate-300 truncate" title={folder}>{folder}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-      ))}
+        )
+      })}
     </div>
   )
 }
