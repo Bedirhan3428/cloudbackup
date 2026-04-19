@@ -1,9 +1,10 @@
 import { db, storage } from './firebase';
-import { 
-  doc, getDoc, setDoc, updateDoc, collection, query, orderBy, limit, getDocs, deleteDoc 
+import {
+  doc, getDoc, setDoc, updateDoc, collection, query, orderBy, limit,
+  getDocs, deleteDoc, where, startAfter, getCountFromServer
 } from 'firebase/firestore';
-import { 
-  ref, listAll, getDownloadURL, deleteObject, getMetadata 
+import {
+  ref, listAll, getDownloadURL, deleteObject, getMetadata
 } from 'firebase/storage';
 
 export const getKey = () => localStorage.getItem('cb_key')
@@ -12,28 +13,32 @@ export const clearKey = () => localStorage.removeItem('cb_key')
 
 // Helper for UI icons
 const extIcon = (name) => {
+  if (!name) return '📄';
   const ext = name.split('.').pop().toLowerCase();
   const map = {
     'pdf': '📄', 'doc': '📝', 'docx': '📝', 'xls': '📊', 'xlsx': '📊',
-    'png': '🖼️', 'jpg': '🖼️', 'jpeg': '🖼️', 'gif': '🖼️',
-    'zip': '📦', 'rar': '📦', '7z': '📦',
-    'mp4': '🎥', 'avi': '🎥', 'mp3': '🎵',
-    'py': '🐍', 'js': '📜', 'txt': '📄'
+    'ppt': '📊', 'pptx': '📊', 'txt': '📄', 'rtf': '📄', 'csv': '📊',
+    'png': '🖼️', 'jpg': '🖼️', 'jpeg': '🖼️', 'gif': '🖼️', 'webp': '🖼️',
+    'bmp': '🖼️', 'svg': '🖼️', 'ico': '🖼️',
+    'zip': '📦', 'rar': '📦', '7z': '📦', 'tar': '📦', 'gz': '📦',
+    'mp4': '🎥', 'mov': '🎥', 'avi': '🎥', 'mkv': '🎥',
+    'mp3': '🎵', 'wav': '🎵', 'flac': '🎵',
+    'py': '🐍', 'js': '📜', 'ts': '📜', 'json': '📜', 'txt': '📄',
+    'exe': '⚙️', 'dll': '⚙️',
   };
   return map[ext] || '📄';
 };
 
 const humanSize = (s) => {
-    if (!s) return '0B'
-    for (const u of ['B', 'KB', 'MB', 'GB']) {
-        if (s < 1024) return `${s.toFixed(1)}${u}`
-        s /= 1024
-    }
-    return `${s.toFixed(1)}TB`
+  if (!s) return '0 B'
+  const units = ['B', 'KB', 'MB', 'GB', 'TB']
+  let i = 0
+  while (s >= 1024 && i < units.length - 1) { s /= 1024; i++ }
+  return `${s.toFixed(1)} ${units[i]}`
 }
 
 export const api = {
-  // Giriş kontrolü (Firestore'da doküman var mı bakıyoruz)
+  // ── Giriş kontrolü ──────────────────────────────────────────
   auth: async (key) => {
     try {
       const d = await getDoc(doc(db, 'accounts', key));
@@ -43,6 +48,7 @@ export const api = {
     }
   },
 
+  // ── Config ──────────────────────────────────────────────────
   getConfig: async () => {
     const key = getKey();
     const d = await getDoc(doc(db, 'accounts', key, 'data', 'config'));
@@ -55,75 +61,97 @@ export const api = {
     await setDoc(doc(db, 'accounts', key, 'data', 'config'), cfg);
   },
 
-  getFiles: async (params = {}) => {
+  // ── Stats — Firestore'dan okur (hızlı) ──────────────────────
+  // Agent her yüklemede bu dokümanı günceller.
+  getStats: async () => {
     const key = getKey();
-    const { search = '', ext = '' } = params;
-    const rootRef = ref(storage, `backups/${key}`);
-    
-    // Not: Firebase Storage'da tüm dosyaları recursive listeleme (listAll) 
-    // her zaman verimli değildir ama mevcut "per_page" mantığına benzer çalışır.
-    const res = await listAll(rootRef); 
-    // listAll sadece direkt altındakileri getirir. Recursive için her klasöre girmek gerekir.
-    // Ancak mevcut server recursive prefixes kullanıyordu.
-    
-    // Firestore'da dosya indexi tutsaydık daha hızlı olurdu. 
-    // Şimdilik listAll ile basit bir liste yapalım veya "Recursive List" implement edelim.
-    let allFiles = [];
-    
-    async function walk(folderRef) {
-        const list = await listAll(folderRef);
-        for (const item of list.items) {
-            const meta = await getMetadata(item);
-            const m = meta.customMetadata || {};
-            const name = item.name;
-            
-            if (search && !name.toLowerCase().includes(search.toLowerCase())) continue;
-            if (ext && !name.toLowerCase().endsWith(ext.toLowerCase())) continue;
-
-            allFiles.push({
-                icon: extIcon(name),
-                name,
-                path: item.fullPath,
-                size: meta.size,
-                size_human: humanSize(meta.size),
-                updated: meta.updated,
-                backup_time: m.backup_time || null,
-                original_path: m.original_path || '',
-                machine: m.source_machine || '—',
-                ai_reason: m.ai_reason || '',
-                ai_confidence: m.ai_confidence || '',
-                source_label: m.source_label || '',
-            });
-        }
-        for (const prefix of list.prefixes) {
-            await walk(prefix);
-        }
-    }
-
-    await walk(rootRef);
-    allFiles.sort((a, b) => new Date(b.updated) - new Date(a.updated));
-
+    const [agentsRes, statsDoc] = await Promise.all([
+      api.getAgents(),
+      getDoc(doc(db, 'accounts', key, 'data', 'stats')),
+    ]);
+    const s = statsDoc.exists() ? statsDoc.data() : {};
     return {
-        files: allFiles.slice(0, 50), // basit limit
-        total: allFiles.length,
-        total_size_human: humanSize(allFiles.reduce((acc, f) => acc + f.size, 0))
+      agent_count: agentsRes.agents.length,
+      total_files: s.total_files || 0,
+      total_size_human: humanSize(s.total_size || 0),
+      ext_stats: s.ext_stats || {},
     };
   },
 
+  // ── Dosya Listesi — Firestore index'inden okur (hızlı) ──────
+  // Agent her yüklemede accounts/{key}/files/{hash} yazar.
+  getFiles: async (params = {}) => {
+    const key = getKey();
+    const { search = '', ext = '', per_page = 50 } = params;
+
+    let q = query(
+      collection(db, 'accounts', key, 'files'),
+      orderBy('backup_time', 'desc'),
+      limit(per_page)
+    );
+
+    const snap = await getDocs(q);
+    let files = snap.docs.map(d => {
+      const data = d.data();
+      return {
+        id: d.id,
+        icon: extIcon(data.name),
+        name: data.name || '',
+        path: data.path || '',
+        size: data.size || 0,
+        size_human: data.size_human || humanSize(data.size || 0),
+        updated: data.updated || data.backup_time || '',
+        backup_time: data.backup_time || '',
+        original_path: data.original_path || '',
+        machine: data.machine || '—',
+        ai_reason: data.ai_reason || '',
+        ai_confidence: data.ai_confidence || '',
+        source_label: data.source_label || '',
+        ext: data.ext || '',
+      };
+    });
+
+    // Client-side filtreleme (Firestore'da full-text search yok)
+    if (search) {
+      const s = search.toLowerCase();
+      files = files.filter(f =>
+        f.name.toLowerCase().includes(s) ||
+        f.original_path.toLowerCase().includes(s) ||
+        f.machine.toLowerCase().includes(s)
+      );
+    }
+    if (ext) {
+      files = files.filter(f => f.name.toLowerCase().endsWith(ext.toLowerCase()));
+    }
+
+    return {
+      files,
+      total: snap.size,
+      total_size_human: humanSize(files.reduce((acc, f) => acc + (f.size || 0), 0)),
+    };
+  },
+
+  // ── Klasör Gezinme — Storage listAll (yapı gezimi) ──────────
+  // Bu sayfa gerçek Storage yapısını gösterdiği için Storage kullanmak zorunda.
+  // Ama metadata çekimi paralel yapılır.
   browseFiles: async (dir = '') => {
     const key = getKey();
-    // Normalize path for browsing
     const normalizedDir = dir.replace(/\\/g, '/').replace(/^\/|\/$/g, '');
-    const pathInStorage = normalizedDir ? `backups/${key}/${normalizedDir}` : `backups/${key}`;
+    const pathInStorage = normalizedDir
+      ? `backups/${key}/${normalizedDir}`
+      : `backups/${key}`;
     const folderRef = ref(storage, pathInStorage);
-    
+
     const res = await listAll(folderRef);
-    
     const folders = res.prefixes.map(p => p.name);
-    const files = await Promise.all(res.items.map(async (item) => {
-        const meta = await getMetadata(item);
-        const m = meta.customMetadata || {};
-        return {
+
+    // Metadata'ları paralel çek
+    const files = await Promise.all(
+      res.items.map(async (item) => {
+        try {
+          const meta = await getMetadata(item);
+          const m = meta.customMetadata || {};
+          return {
             icon: extIcon(item.name),
             name: item.name,
             path: item.fullPath,
@@ -135,27 +163,77 @@ export const api = {
             machine: m.source_machine || '—',
             ai_reason: m.ai_reason || '',
             ai_confidence: m.ai_confidence || '',
-        };
-    }));
+          };
+        } catch {
+          return {
+            icon: '📄', name: item.name, path: item.fullPath,
+            size: 0, size_human: '?', updated: '', backup_time: null,
+            original_path: '', machine: '—', ai_reason: '', ai_confidence: '',
+          };
+        }
+      })
+    );
+
+    const total_size = files.reduce((a, f) => a + (f.size || 0), 0);
 
     return {
-        current_dir: dir,
-        folders: folders,
-        files: files,
-        total_files: files.length,
-        total_folders: folders.length
+      current_dir: dir,
+      folders,
+      files,
+      total_files: files.length,
+      total_folders: folders.length,
+      total_size_human: humanSize(total_size),
     };
   },
 
+  // ── İndirme URL ──────────────────────────────────────────────
   getDownloadUrl: async (path) => {
     const u = await getDownloadURL(ref(storage, path));
     return { url: u };
   },
 
+  // ── Silme — Storage + Firestore index ───────────────────────
   deleteFile: async (path) => {
+    const key = getKey();
+
+    // Storage'dan sil
     await deleteObject(ref(storage, path));
+
+    // Firestore index'inden de sil
+    try {
+      const q = query(
+        collection(db, 'accounts', key, 'files'),
+        where('path', '==', path),
+        limit(1)
+      );
+      const snap = await getDocs(q);
+      for (const d of snap.docs) {
+        await deleteDoc(d.ref);
+      }
+
+      // Stats'ı güncelle (total_files -1)
+      const statsRef = doc(db, 'accounts', key, 'data', 'stats');
+      const statsDoc = await getDoc(statsRef);
+      if (statsDoc.exists()) {
+        const s = statsDoc.data();
+        const fileSize = snap.docs[0]?.data()?.size || 0;
+        const fileExt = snap.docs[0]?.data()?.ext || '';
+        const updates = {
+          total_files: Math.max(0, (s.total_files || 1) - 1),
+          total_size: Math.max(0, (s.total_size || 0) - fileSize),
+        };
+        if (fileExt && s.ext_stats && s.ext_stats[fileExt]) {
+          updates[`ext_stats.${fileExt}`] = Math.max(0, s.ext_stats[fileExt] - 1);
+        }
+        await updateDoc(statsRef, updates);
+      }
+    } catch (e) {
+      // Index yoksa da Storage'dan silindi, devam et
+      console.warn('Firestore index silme hatası:', e);
+    }
   },
 
+  // ── Agentlar ─────────────────────────────────────────────────
   getAgents: async () => {
     const key = getKey();
     const d = await getDoc(doc(db, 'accounts', key, 'data', 'agents'));
@@ -163,57 +241,54 @@ export const api = {
     const now = Date.now();
 
     return {
-        agents: Object.values(agents).map(a => ({
-            ...a,
-            online: a.last_seen ? (now - new Date(a.last_seen).getTime()) < 90000 : false
-        }))
+      agents: Object.values(agents).map(a => ({
+        ...a,
+        online: a.last_seen
+          ? (now - new Date(a.last_seen).getTime()) < 90000
+          : false,
+      })),
     };
   },
 
+  // ── Self-Destruct ─────────────────────────────────────────────
   selfDestruct: async (machine_name) => {
     const key = getKey();
-    await setDoc(doc(db, 'accounts', key, 'data', 'self_destruct'), {
+    await setDoc(
+      doc(db, 'accounts', key, 'data', 'self_destruct'),
+      {
         [machine_name]: {
-            status: 'pending',
-            issued_at: new Date().toISOString(),
-            acknowledged_at: null
-        }
-    }, { merge: true });
+          status: 'pending',
+          issued_at: new Date().toISOString(),
+          acknowledged_at: null,
+        },
+      },
+      { merge: true }
+    );
     return { ok: true };
   },
 
   cancelSelfDestruct: async (machine_name) => {
     const key = getKey();
-    await setDoc(doc(db, 'accounts', key, 'data', 'self_destruct'), {
-        [machine_name]: null
-    }, { merge: true });
+    // deleteField() kullanmak yerine status'u cancelled yap
+    await setDoc(
+      doc(db, 'accounts', key, 'data', 'self_destruct'),
+      { [machine_name]: { status: 'cancelled' } },
+      { merge: true }
+    );
     return { ok: true };
   },
 
+  // ── Loglar ───────────────────────────────────────────────────
   getLogs: async (lines = 100) => {
     const key = getKey();
     const q = query(
-        collection(db, 'accounts', key, 'logs'), 
-        orderBy('ts', 'desc'), 
-        limit(lines)
+      collection(db, 'accounts', key, 'logs'),
+      orderBy('ts', 'desc'),
+      limit(lines)
     );
     const snap = await getDocs(q);
     return {
-      logs: snap.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }))
+      logs: snap.docs.map(d => ({ id: d.id, ...d.data() })),
     };
   },
-
-  getStats: async () => {
-    // Stats calculation can be heavy on client side without a server.
-    // For now, we can calculate from agents list or leave as aggregate.
-    const agentsRes = await api.getAgents();
-    return {
-        agent_count: agentsRes.agents.length,
-        total_files: 0, // Storage listAll recursive is slow for stats
-        total_size_human: '—'
-    };
-  }
-}
+};
