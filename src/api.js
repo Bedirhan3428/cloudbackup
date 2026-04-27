@@ -227,8 +227,8 @@ export const api = {
     const encBuffer = await response.arrayBuffer();
 
     const encArray = new Uint8Array(encBuffer);
-    const nonce = encArray.slice(0, 16);
-    const ciphertextWithTag = encArray.slice(16);
+    const nonce = encArray.slice(0, 12);
+    const ciphertextWithTag = encArray.slice(12);
 
     let decryptedBuffer;
     try {
