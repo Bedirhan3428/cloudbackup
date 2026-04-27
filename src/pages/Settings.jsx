@@ -271,7 +271,7 @@ export default function Settings() {
         </div>
         <div className="space-y-1 border-t border-[#162033] pt-4">
           <Toggle checked={!!cfg.sync_on_start} onChange={v => set('sync_on_start', v)} label="Ba&#x015F;lang&#x0131;&ccedil;ta Senkronize Et" desc="Agent a&ccedil;&#x0131;l&#x0131;nca mevcut dosyalar&#x0131; y&uuml;kle" />
-          <Toggle checked={!!cfg.delete_on_remove} onChange={v => set('delete_on_remove', v)} label="PC'den Silinince Firebase'den de Sil" desc="Dikkatli kullan!" />
+          <Toggle checked={!!cfg.test_mode} onChange={v => set('test_mode', v)} label="&#x1F9EA; Test Modu (30sn)" desc="Senkronizasyon aral&#x0131;&#x011F;&#x0131;n&#x0131; 30 saniyeye d&uuml;&#x015F;&uuml;r&uuml;r" />
         </div>
       </Section>
 
@@ -307,19 +307,7 @@ export default function Settings() {
         </div>
       </Section>
 
-      {/* Firebase */}
-      <Section title="&#x1F525; Firebase">
-        <div className="space-y-4">
-          <div>
-            <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-2">Storage Bucket</label>
-            <input className="inp font-mono" value={cfg.firebase?.storage_bucket || ''} onChange={e => set('firebase.storage_bucket', e.target.value)} placeholder="proje.appspot.com" />
-          </div>
-          <div>
-            <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-2">Credentials JSON Yolu</label>
-            <input className="inp font-mono" value={cfg.firebase?.credentials_path || ''} onChange={e => set('firebase.credentials_path', e.target.value)} placeholder="firebase-credentials.json" />
-          </div>
-        </div>
-      </Section>
+
 
       {/* Security & Decryption */}
       <Section title="🔒 Güvenlik ve Şifre Çözme (RSA)">
