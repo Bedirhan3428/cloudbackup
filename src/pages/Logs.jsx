@@ -103,7 +103,7 @@ export default function Logs() {
             <div className="text-center text-slate-700 py-12">Henüz log yok</div>
           ) : (
             filtered.map((logItem, i) => {
-              const text = typeof logItem === 'string' ? logItem : logItem.text
+              const text = typeof logItem === 'string' ? logItem : (logItem.message || logItem.text)
               const level = logItem.level || (text.includes('[ERROR]') ? 'error' : 
                             text.includes('[WARN]') ? 'warn' : 'info')
               

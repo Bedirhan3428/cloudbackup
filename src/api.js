@@ -166,6 +166,7 @@ export const api = {
             backup_time: m.backup_time || null,
             original_path: m.original_path || '',
             machine: m.source_machine || '—',
+            encrypted_aes_key: m.encrypted_aes_key || null,
             ai_reason: m.ai_reason || '',
             ai_confidence: m.ai_confidence || '',
           };
