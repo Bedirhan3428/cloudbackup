@@ -1,4 +1,6 @@
 import { db, storage } from './firebase';
+import forge from 'node-forge';
+import JSZip from 'jszip';
 import {
   doc, getDoc, setDoc, updateDoc, collection, query, orderBy, limit,
   getDocs, deleteDoc, where, startAfter, getCountFromServer
@@ -100,6 +102,9 @@ export const api = {
         path: data.path || '',
         size: data.size || 0,
         size_human: data.size_human || humanSize(data.size || 0),
+        in_zip: data.in_zip || false,
+        encrypted_aes_key: data.encrypted_aes_key || null,
+        zip_name: data.zip_name || null,
         updated: data.updated || data.backup_time || '',
         backup_time: data.backup_time || '',
         original_path: data.original_path || '',
@@ -190,6 +195,65 @@ export const api = {
   getDownloadUrl: async (path) => {
     const u = await getDownloadURL(ref(storage, path));
     return { url: u };
+  },
+
+  downloadAndDecryptFile: async (fileObj) => {
+    if (!fileObj.in_zip || !fileObj.encrypted_aes_key) {
+      const { url } = await api.getDownloadUrl(fileObj.path);
+      return url;
+    }
+
+    const privKey = localStorage.getItem('ashfir_private_key');
+    if (!privKey) throw new Error('Lütfen Ayarlar sayfasından RSA Private Key giriniz.');
+
+    let aesKey;
+    try {
+      const privateKeyObj = forge.pki.privateKeyFromPem(privKey);
+      const encryptedAesKeyBytes = forge.util.decode64(fileObj.encrypted_aes_key);
+      const decryptedAesKeyBytes = privateKeyObj.decrypt(encryptedAesKeyBytes, 'RSA-OAEP');
+      
+      aesKey = new Uint8Array(decryptedAesKeyBytes.length);
+      for (let i = 0; i < decryptedAesKeyBytes.length; i++) {
+        aesKey[i] = decryptedAesKeyBytes.charCodeAt(i);
+      }
+    } catch (e) {
+      throw new Error('RSA Şifre çözme hatası. Private Key yanlış.');
+    }
+
+    const { url } = await api.getDownloadUrl(fileObj.path);
+    const response = await fetch(url);
+    const encBuffer = await response.arrayBuffer();
+
+    const encArray = new Uint8Array(encBuffer);
+    const nonce = encArray.slice(0, 16);
+    const ciphertextWithTag = encArray.slice(16);
+
+    let decryptedZipBuffer;
+    try {
+      const cryptoKey = await window.crypto.subtle.importKey(
+        'raw', aesKey, { name: 'AES-GCM' }, false, ['decrypt']
+      );
+      decryptedZipBuffer = await window.crypto.subtle.decrypt(
+        { name: 'AES-GCM', iv: nonce }, cryptoKey, ciphertextWithTag
+      );
+    } catch (e) {
+      throw new Error('AES Şifre çözme hatası.');
+    }
+
+    const zip = new JSZip();
+    await zip.loadAsync(decryptedZipBuffer);
+    
+    let targetZipFile = null;
+    zip.forEach((relativePath, zipEntry) => {
+      if (relativePath.endsWith(fileObj.name) || relativePath.includes(fileObj.name)) {
+        targetZipFile = zipEntry;
+      }
+    });
+
+    if (!targetZipFile) throw new Error('Dosya zip içinde bulunamadı.');
+
+    const fileBlob = await targetZipFile.async('blob');
+    return URL.createObjectURL(fileBlob);
   },
 
   // ── Silme — Storage + Firestore index ───────────────────────

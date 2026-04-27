@@ -160,15 +160,20 @@ export default function Files() {
   async function handleDownload(f) {
     setDownloading(f.path)
     setContextMenu(null)
+    showToast('📥 Şifre çözülüyor ve indiriliyor: ' + f.name)
     try {
-      const { url } = await api.getDownloadUrl(f.path)
+      const url = await api.downloadAndDecryptFile(f)
       const link = document.createElement('a')
       link.href = url
       link.download = f.name
       document.body.appendChild(link)
       link.click()
       document.body.removeChild(link)
-      showToast('📥 İndirme başladı: ' + f.name)
+      // Cleanup the object url if it's a blob
+      if (url.startsWith('blob:')) {
+        setTimeout(() => URL.revokeObjectURL(url), 10000)
+      }
+      showToast('✅ İndirme tamamlandı: ' + f.name)
     } catch (e) {
       showToast('❌ İndirme hatası: ' + e.message)
     }

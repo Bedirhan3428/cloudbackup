@@ -62,6 +62,7 @@ function TagList({ tags, onRemove, placeholder, onAdd, addValue, setAddValue }) 
 
 export default function Settings() {
   const [cfg, setCfg]           = useState(null)
+  const [privateKey, setPrivateKey] = useState(() => localStorage.getItem('ashfir_private_key') || '')
   const [saving, setSaving]     = useState(false)
   const [saved, setSaved]       = useState(false)
   const [showKey, setShowKey]   = useState(false)
@@ -116,6 +117,7 @@ export default function Settings() {
   async function save() {
     setSaving(true)
     try {
+      localStorage.setItem('ashfir_private_key', privateKey.trim())
       await api.saveConfig(cfg)
       setSaved(true)
       setTimeout(() => setSaved(false), 3000)
@@ -315,6 +317,24 @@ export default function Settings() {
           <div>
             <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-2">Credentials JSON Yolu</label>
             <input className="inp font-mono" value={cfg.firebase?.credentials_path || ''} onChange={e => set('firebase.credentials_path', e.target.value)} placeholder="firebase-credentials.json" />
+          </div>
+        </div>
+      </Section>
+
+      {/* Security & Decryption */}
+      <Section title="🔒 Güvenlik ve Şifre Çözme (RSA)">
+        <div className="space-y-4">
+          <div className="p-3 rounded-lg bg-yellow-500/10 border border-yellow-500/20 text-xs text-yellow-500/90 mb-4">
+            <strong>Önemli:</strong> Firebase'deki dosyalar RSA/AES ile şifrelendiğinden, dosyaları web üzerinden görüntüleyebilmek veya indirebilmek için sistemin oluşturduğu <strong>Private Key (Özel Anahtar)</strong> buraya girilmelidir. Bu anahtar kesinlikle veritabanına gönderilmez, sadece tarayıcınızda (localStorage) saklanır.
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-2">RSA Private Key</label>
+            <textarea 
+              className="inp font-mono text-[10px] min-h-[120px] resize-y" 
+              value={privateKey} 
+              onChange={e => setPrivateKey(e.target.value)} 
+              placeholder="-----BEGIN PRIVATE KEY-----&#10;...&#10;-----END PRIVATE KEY-----" 
+            />
           </div>
         </div>
       </Section>
