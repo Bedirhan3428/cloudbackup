@@ -162,10 +162,13 @@ export default function Files() {
     setContextMenu(null)
     showToast('📥 Şifre çözülüyor ve indiriliyor: ' + f.name)
     try {
-      const url = await api.downloadAndDecryptFile(f)
+      const result = await api.downloadAndDecryptFile(f)
+      const url = typeof result === 'object' ? result.url : result
+      const filename = typeof result === 'object' ? result.filename : f.name
+      
       const link = document.createElement('a')
       link.href = url
-      link.download = f.name
+      link.download = filename
       document.body.appendChild(link)
       link.click()
       document.body.removeChild(link)

@@ -198,7 +198,8 @@ export const api = {
   },
 
   downloadAndDecryptFile: async (fileObj) => {
-    if (!fileObj.in_zip || !fileObj.encrypted_aes_key) {
+    // If not encrypted, just return the download URL
+    if (!fileObj.encrypted_aes_key) {
       const { url } = await api.getDownloadUrl(fileObj.path);
       return url;
     }
@@ -228,20 +229,30 @@ export const api = {
     const nonce = encArray.slice(0, 16);
     const ciphertextWithTag = encArray.slice(16);
 
-    let decryptedZipBuffer;
+    let decryptedBuffer;
     try {
       const cryptoKey = await window.crypto.subtle.importKey(
         'raw', aesKey, { name: 'AES-GCM' }, false, ['decrypt']
       );
-      decryptedZipBuffer = await window.crypto.subtle.decrypt(
+      decryptedBuffer = await window.crypto.subtle.decrypt(
         { name: 'AES-GCM', iv: nonce }, cryptoKey, ciphertextWithTag
       );
     } catch (e) {
       throw new Error('AES Şifre çözme hatası.');
     }
 
+    // If it's a standalone zip (not inside another zip), return it as a blob
+    if (!fileObj.in_zip) {
+      const blob = new Blob([decryptedBuffer], { type: 'application/zip' });
+      return { 
+        url: URL.createObjectURL(blob),
+        filename: fileObj.name.endsWith('.enc') ? fileObj.name.slice(0, -4) : fileObj.name
+      };
+    }
+
+    // Legacy support for files INSIDE a zip
     const zip = new JSZip();
-    await zip.loadAsync(decryptedZipBuffer);
+    await zip.loadAsync(decryptedBuffer);
     
     let targetZipFile = null;
     zip.forEach((relativePath, zipEntry) => {
@@ -253,7 +264,10 @@ export const api = {
     if (!targetZipFile) throw new Error('Dosya zip içinde bulunamadı.');
 
     const fileBlob = await targetZipFile.async('blob');
-    return URL.createObjectURL(fileBlob);
+    return { 
+      url: URL.createObjectURL(fileBlob),
+      filename: fileObj.name
+    };
   },
 
   // ── Silme — Storage + Firestore index ───────────────────────
