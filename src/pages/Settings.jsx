@@ -79,7 +79,15 @@ export default function Settings() {
   const [destructStep, setDestructStep]     = useState(0)
   const [destructToast, setDestructToast]   = useState(null)
 
-  useEffect(() => { api.getConfig().then(d => setCfg(d)).catch(() => {}) }, [])
+  useEffect(() => { 
+    api.getConfig().then(d => {
+      // Default extensions if empty
+      if (!d.allowed_extensions || d.allowed_extensions.length === 0) {
+        d.allowed_extensions = ['.word', '.docx', '.pdf', '.xlsx']
+      }
+      setCfg(d)
+    }).catch(() => {}) 
+  }, [])
   useEffect(() => { api.getAgents().then(d => setAgents(d.agents || [])).catch(() => {}) }, [])
 
   function set(path, val) {
