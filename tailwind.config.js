@@ -8,12 +8,12 @@ export default {
         mono: ['JetBrains Mono', 'monospace'],
       },
       colors: {
-        bg:      '#05080f',
-        surface: '#0a0f1c',
-        card:    '#0d1525',
-        border:  '#162033',
-        accent:  '#3b82f6',
-        accent2: '#60a5fa',
+        bg:      '#050814',
+        surface: '#070b14',
+        card:    '#0b1221',
+        border:  '#0e3a5e',
+        accent:  '#06b6d4',
+        accent2: '#10b981',
       },
       animation: {
         'pulse-slow': 'pulse 3s ease-in-out infinite',

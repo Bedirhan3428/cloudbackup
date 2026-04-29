@@ -1,26 +1,20 @@
 import { useEffect, useState, useCallback } from 'react'
 import { api } from '../api'
 import { useNavigate } from 'react-router-dom'
-import { HardDrive, Cloud, Cpu, Brain, RefreshCw, ChevronRight } from 'lucide-react'
+import { HardDrive, Cloud, Cpu, Brain, RefreshCw, ChevronRight, Activity, Database, Zap } from 'lucide-react'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts'
 
-function StatCard({ icon: Icon, label, value, sub, color = 'blue' }) {
-  const colors = {
-    blue: 'text-blue-400 bg-blue-600/10 border-blue-500/15',
-    green: 'text-emerald-400 bg-emerald-600/10 border-emerald-500/15',
-    purple: 'text-purple-400 bg-purple-600/10 border-purple-500/15',
-    amber: 'text-amber-400 bg-amber-600/10 border-amber-500/15',
-  }
+function StatCard({ icon: Icon, label, value, sub, delay = 0 }) {
   return (
-    <div className="card p-5 hover:border-blue-500/20 transition-colors duration-200">
+    <div className="card p-5 group hover:border-cyan-500/30 transition-all duration-300 animate-slide-up corner-accents" style={{ animationDelay: `${delay}ms` }}>
       <div className="flex items-start justify-between">
         <div>
-          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">{label}</p>
-          <p className="text-2xl font-bold text-slate-100 tabular-nums">{value ?? '—'}</p>
-          {sub && <p className="text-xs text-slate-600 mt-1">{sub}</p>}
+          <p className="text-[10px] font-mono font-bold text-cyan-600 uppercase tracking-[0.15em] mb-2">{label}</p>
+          <p className="text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-cyan-300 to-emerald-300 tabular-nums">{value ?? '—'}</p>
+          {sub && <p className="text-[10px] text-cyan-700 mt-1 font-mono">{sub}</p>}
         </div>
-        <div className={`w-9 h-9 rounded-lg border flex items-center justify-center flex-shrink-0 ${colors[color]}`}>
-          <Icon className="w-4 h-4" />
+        <div className="w-10 h-10 rounded-lg bg-cyan-950/50 border border-cyan-500/20 flex items-center justify-center group-hover:shadow-[0_0_15px_rgba(6,182,212,0.2)] transition-all">
+          <Icon className="w-5 h-5 text-cyan-500" />
         </div>
       </div>
     </div>
@@ -36,7 +30,7 @@ function timeAgo(str) {
   return Math.round(s / 86400) + 'gün önce'
 }
 
-const EXT_COLORS = ['#3b82f6','#8b5cf6','#10b981','#f59e0b','#ef4444','#06b6d4','#84cc16','#f43f5e']
+const EXT_COLORS = ['#06b6d4','#10b981','#8b5cf6','#f59e0b','#ef4444','#3b82f6','#84cc16','#f43f5e']
 
 export default function Dashboard() {
   const [stats, setStats]   = useState(null)
@@ -69,56 +63,59 @@ export default function Dashboard() {
   return (
     <div className="p-8">
       {/* Header */}
-      <div className="flex items-center justify-between mb-8">
+      <div className="flex items-center justify-between mb-8 animate-fade-in">
         <div>
-          <h1 className="text-xl font-bold text-slate-100">Dashboard</h1>
-          <p className="text-slate-500 text-sm mt-0.5">Yedekleme sistemine genel bakış</p>
+          <h1 className="text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-emerald-400 tracking-widest flex items-center gap-3">
+            <Activity className="w-6 h-6 text-cyan-400" />
+            DASHBOARD
+          </h1>
+          <p className="text-[10px] font-mono text-cyan-600 uppercase tracking-[0.2em] mt-1">System Overview & Monitoring</p>
         </div>
         <button onClick={load} className="btn-ghost flex items-center gap-2" disabled={loading}>
           <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-          Yenile
+          Refresh
         </button>
       </div>
 
       {/* Stats */}
       <div className="grid grid-cols-4 gap-4 mb-6">
-        <StatCard icon={Cloud} label="Toplam Dosya" value={stats?.total_files?.toLocaleString()} sub="Firebase Storage" color="blue" />
-        <StatCard icon={HardDrive} label="Kullanılan Alan" value={stats?.total_size_human} sub="Firebase Storage" color="green" />
-        <StatCard icon={Cpu} label="Bağlı Bilgisayar" value={`${agents.filter(a=>a.online).length} / ${agents.length}`} sub="Agent durumu" color="purple" />
-        <StatCard icon={Brain} label="AI Tarafından Atlandı" value={agents.reduce((s,a)=>s+(a.ai_skipped||0),0).toLocaleString()} sub="Gereksiz dosyalar" color="amber" />
+        <StatCard icon={Cloud} label="Total Files" value={stats?.total_files?.toLocaleString()} sub="Firebase Storage" delay={0} />
+        <StatCard icon={Database} label="Storage Used" value={stats?.total_size_human} sub="Encrypted Data" delay={100} />
+        <StatCard icon={Cpu} label="Nodes" value={`${agents.filter(a=>a.online).length} / ${agents.length}`} sub="Agent Status" delay={200} />
+        <StatCard icon={Brain} label="AI Skipped" value={agents.reduce((s,a)=>s+(a.ai_skipped||0),0).toLocaleString()} sub="Filtered Out" delay={300} />
       </div>
 
       <div className="grid grid-cols-3 gap-5">
         {/* Recent files - 2 cols */}
-        <div className="col-span-2 card overflow-hidden">
-          <div className="flex items-center justify-between px-5 py-4 border-b border-[#162033]">
-            <h2 className="font-semibold text-slate-200 text-sm">Son Yedeklenen Dosyalar</h2>
-            <button onClick={() => nav('/files')} className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1">
-              Tümü <ChevronRight className="w-3 h-3" />
+        <div className="col-span-2 card overflow-hidden animate-slide-up" style={{ animationDelay: '400ms' }}>
+          <div className="flex items-center justify-between px-5 py-4 border-b border-cyan-900/30">
+            <h2 className="font-mono font-bold text-cyan-400 text-xs tracking-widest uppercase">Recent Backups</h2>
+            <button onClick={() => nav('/files')} className="text-[10px] text-cyan-600 hover:text-cyan-400 flex items-center gap-1 font-mono uppercase tracking-wider transition-colors">
+              View All <ChevronRight className="w-3 h-3" />
             </button>
           </div>
           <div>
             {recent.length === 0 && !loading ? (
-              <div className="py-12 text-center text-slate-600 text-sm">Henüz dosya yok</div>
+              <div className="py-12 text-center text-cyan-700 text-xs font-mono">No files backed up yet</div>
             ) : (
               <table className="w-full text-sm">
                 <tbody>
-                  {recent.map(f => (
-                    <tr key={f.path} className="border-b border-[#162033]/50 last:border-0 hover:bg-white/[0.02] transition-colors">
+                  {recent.map((f, i) => (
+                    <tr key={f.path} className="border-b border-cyan-900/20 last:border-0 hover:bg-cyan-500/5 transition-colors">
                       <td className="px-5 py-3">
                         <div className="flex items-center gap-3">
                           <span className="text-lg leading-none">{f.icon}</span>
                           <div className="min-w-0">
-                            <div className="font-medium text-slate-200 truncate max-w-[200px]">{f.name}</div>
-                            <div className="text-[11px] text-slate-600 truncate max-w-[200px] font-mono">{f.original_path}</div>
+                            <div className="font-medium text-cyan-100 truncate max-w-[200px] text-xs">{f.name}</div>
+                            <div className="text-[9px] text-cyan-700 truncate max-w-[200px] font-mono">{f.original_path}</div>
                           </div>
                         </div>
                       </td>
-                      <td className="px-4 py-3 font-mono text-xs text-slate-500 whitespace-nowrap">{f.size_human}</td>
+                      <td className="px-4 py-3 font-mono text-[10px] text-cyan-600 whitespace-nowrap">{f.size_human}</td>
                       <td className="px-4 py-3">
-                        <span className="badge bg-blue-500/10 text-blue-400 border border-blue-500/15">{f.machine}</span>
+                        <span className="badge bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 text-[9px]">{f.machine}</span>
                       </td>
-                      <td className="px-4 py-3 text-xs text-slate-600 whitespace-nowrap">{timeAgo(f.backup_time || f.updated)}</td>
+                      <td className="px-4 py-3 text-[10px] text-cyan-700 whitespace-nowrap font-mono">{timeAgo(f.backup_time || f.updated)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -130,34 +127,34 @@ export default function Dashboard() {
         {/* Right column */}
         <div className="space-y-5">
           {/* Agents */}
-          <div className="card overflow-hidden">
-            <div className="flex items-center justify-between px-4 py-3.5 border-b border-[#162033]">
-              <h2 className="font-semibold text-slate-200 text-sm">Bilgisayarlar</h2>
-              <button onClick={() => nav('/system-map')} className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1 transition-colors">
-                Sistem Haritası <ChevronRight className="w-3 h-3" />
+          <div className="card overflow-hidden animate-slide-up" style={{ animationDelay: '500ms' }}>
+            <div className="flex items-center justify-between px-4 py-3.5 border-b border-cyan-900/30">
+              <h2 className="font-mono font-bold text-cyan-400 text-xs tracking-widest uppercase">Nodes</h2>
+              <button onClick={() => nav('/system-map')} className="text-[10px] text-cyan-600 hover:text-cyan-400 flex items-center gap-1 font-mono uppercase tracking-wider transition-colors">
+                Explorer <ChevronRight className="w-3 h-3" />
               </button>
             </div>
             <div className="p-4 space-y-3">
               {agents.length === 0 ? (
-                <div className="text-center text-slate-600 text-xs py-4">
-                  <div className="text-2xl mb-2">🖥️</div>
-                  Agent bağlı değil
+                <div className="text-center text-cyan-700 text-[10px] py-4 font-mono">
+                  <Cpu className="w-8 h-8 mx-auto mb-2 text-cyan-800" />
+                  No nodes connected
                 </div>
               ) : agents.map(a => (
-                <div key={a.machine_name} className="bg-bg rounded-lg p-3 border border-[#162033]">
+                <div key={a.machine_name} className="bg-[#070b14] rounded-lg p-3 border border-cyan-900/30 hover:border-cyan-500/20 transition-colors">
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-2">
-                      <div className={`w-2 h-2 rounded-full flex-shrink-0 ${a.online ? 'bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.8)]' : 'bg-slate-700'}`} />
-                      <span className="font-semibold text-slate-200 text-sm">{a.machine_name}</span>
+                      <div className={`w-2 h-2 rounded-full flex-shrink-0 ${a.online ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]' : 'bg-cyan-900'}`} />
+                      <span className="font-mono font-bold text-cyan-200 text-xs">{a.machine_name}</span>
                     </div>
-                    <span className={`badge text-[10px] ${a.online ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-slate-700/30 text-slate-600 border-slate-700/40'}`}>
-                      {a.online ? 'Çevrimiçi' : 'Çevrimdışı'}
+                    <span className={`badge text-[9px] ${a.online ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-cyan-900/20 text-cyan-700 border-cyan-900/30'}`}>
+                      {a.online ? 'ONLINE' : 'OFFLINE'}
                     </span>
                   </div>
-                  <div className="grid grid-cols-2 gap-x-3 text-[11px] text-slate-600">
-                    <span>Yüklenen: <span className="text-slate-400 font-medium">{a.files_uploaded}</span></span>
-                    <span>Atlanan: <span className="text-amber-500 font-medium">{a.ai_skipped || 0}</span></span>
-                    {a.last_file && <span className="col-span-2 truncate">Son: <span className="text-blue-400">{a.last_file}</span></span>}
+                  <div className="grid grid-cols-2 gap-x-3 text-[10px] text-cyan-700 font-mono">
+                    <span>Uploaded: <span className="text-cyan-400">{a.files_uploaded}</span></span>
+                    <span>Skipped: <span className="text-amber-500">{a.ai_skipped || 0}</span></span>
+                    {a.last_file && <span className="col-span-2 truncate">Last: <span className="text-cyan-500">{a.last_file}</span></span>}
                   </div>
                 </div>
               ))}
@@ -166,19 +163,19 @@ export default function Dashboard() {
 
           {/* Ext chart */}
           {extChartData.length > 0 && (
-            <div className="card overflow-hidden">
-              <div className="px-4 py-3.5 border-b border-[#162033]">
-                <h2 className="font-semibold text-slate-200 text-sm">Dosya Türleri</h2>
+            <div className="card overflow-hidden animate-slide-up" style={{ animationDelay: '600ms' }}>
+              <div className="px-4 py-3.5 border-b border-cyan-900/30">
+                <h2 className="font-mono font-bold text-cyan-400 text-xs tracking-widest uppercase">File Types</h2>
               </div>
               <div className="p-4">
                 <ResponsiveContainer width="100%" height={160}>
                   <BarChart data={extChartData} margin={{ top: 0, right: 0, bottom: 0, left: -20 }}>
-                    <XAxis dataKey="name" tick={{ fill: '#475569', fontSize: 10 }} axisLine={false} tickLine={false} />
-                    <YAxis tick={{ fill: '#475569', fontSize: 10 }} axisLine={false} tickLine={false} />
+                    <XAxis dataKey="name" tick={{ fill: '#0e7490', fontSize: 9, fontFamily: 'JetBrains Mono' }} axisLine={false} tickLine={false} />
+                    <YAxis tick={{ fill: '#0e7490', fontSize: 9, fontFamily: 'JetBrains Mono' }} axisLine={false} tickLine={false} />
                     <Tooltip
-                      contentStyle={{ background: '#0d1525', border: '1px solid #162033', borderRadius: 8, fontSize: 12 }}
-                      itemStyle={{ color: '#94a3b8' }}
-                      cursor={{ fill: 'rgba(59,130,246,0.05)' }}
+                      contentStyle={{ background: '#0b1221', border: '1px solid rgba(6,182,212,0.2)', borderRadius: 8, fontSize: 11, fontFamily: 'JetBrains Mono' }}
+                      itemStyle={{ color: '#67e8f9' }}
+                      cursor={{ fill: 'rgba(6,182,212,0.05)' }}
                     />
                     <Bar dataKey="count" radius={[4,4,0,0]}>
                       {extChartData.map((_, i) => <Cell key={i} fill={EXT_COLORS[i % EXT_COLORS.length]} />)}

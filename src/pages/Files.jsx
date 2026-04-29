@@ -236,16 +236,16 @@ export default function Files() {
   const filteredFiles = search ? files.filter(f => f.name.toLowerCase().includes(search.toLowerCase())) : files
 
   return (
-    <div className="p-6 h-full flex flex-col" onClick={() => { setSelected(null); setContextMenu(null) }}>
+    <div className="p-6 h-full flex flex-col animate-fade-in" onClick={() => { setSelected(null); setContextMenu(null) }}>
 
       {/* ═══ TOOLBAR ═══ */}
-      <div className="flex items-center gap-2 mb-3">
+      <div className="flex items-center gap-2 mb-3 animate-slide-up">
         {/* Navigation Buttons */}
         <div className="flex items-center gap-0.5">
           <button
             onClick={goBack}
             disabled={historyIdx <= 0}
-            className="p-2 rounded-lg hover:bg-white/5 disabled:opacity-30 disabled:hover:bg-transparent text-slate-400 hover:text-slate-200 transition-all"
+            className="p-2 rounded-lg hover:bg-cyan-500/10 disabled:opacity-30 disabled:hover:bg-transparent text-cyan-600 hover:text-cyan-400 transition-all"
             title="Geri"
           >
             <ChevronLeft className="w-4 h-4" />
@@ -253,7 +253,7 @@ export default function Files() {
           <button
             onClick={goForward}
             disabled={historyIdx >= history.length - 1}
-            className="p-2 rounded-lg hover:bg-white/5 disabled:opacity-30 disabled:hover:bg-transparent text-slate-400 hover:text-slate-200 transition-all"
+            className="p-2 rounded-lg hover:bg-cyan-500/10 disabled:opacity-30 disabled:hover:bg-transparent text-cyan-600 hover:text-cyan-400 transition-all"
             title="İleri"
           >
             <ChevronRight className="w-4 h-4" />
@@ -261,7 +261,7 @@ export default function Files() {
           <button
             onClick={goUp}
             disabled={!currentDir}
-            className="p-2 rounded-lg hover:bg-white/5 disabled:opacity-30 disabled:hover:bg-transparent text-slate-400 hover:text-slate-200 transition-all"
+            className="p-2 rounded-lg hover:bg-cyan-500/10 disabled:opacity-30 disabled:hover:bg-transparent text-cyan-600 hover:text-cyan-400 transition-all"
             title="Yukarı"
           >
             <ArrowUp className="w-4 h-4" />
@@ -269,7 +269,7 @@ export default function Files() {
           <button
             onClick={() => browse(currentDir)}
             disabled={loading}
-            className="p-2 rounded-lg hover:bg-white/5 text-slate-400 hover:text-slate-200 transition-all"
+            className="p-2 rounded-lg hover:bg-cyan-500/10 text-cyan-600 hover:text-cyan-400 transition-all"
             title="Yenile"
           >
             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
@@ -285,22 +285,22 @@ export default function Files() {
                 value={pathInput}
                 onChange={e => setPathInput(e.target.value)}
                 onBlur={() => setEditingPath(false)}
-                className="w-full bg-[#0a0f1c] border border-blue-500/50 rounded-lg px-3 py-1.5 text-sm text-slate-200 
-                           font-mono outline-none focus:ring-2 focus:ring-blue-500/20"
+                className="w-full bg-[#050810] border border-cyan-500/50 rounded-lg px-3 py-1.5 text-sm text-cyan-200 
+                           font-mono outline-none focus:ring-2 focus:ring-cyan-500/20"
                 placeholder="Yol girin..."
               />
             </form>
           ) : (
             <div
               onClick={(e) => { e.stopPropagation(); setEditingPath(true); setPathInput(currentDir) }}
-              className="flex items-center gap-0 bg-[#0a0f1c] border border-[#1e2d44] rounded-lg px-2 py-1.5 cursor-text
-                         hover:border-[#2a3f5f] transition-colors min-h-[34px] overflow-hidden"
+              className="flex items-center gap-0 bg-[#050810] border border-cyan-900/40 rounded-lg px-2 py-1.5 cursor-text
+                         hover:border-cyan-500/30 transition-colors min-h-[34px] overflow-hidden"
             >
               {/* Root Icon */}
               <button
                 onClick={(e) => { e.stopPropagation(); navigateTo('') }}
-                className="flex items-center gap-1.5 px-1.5 py-0.5 rounded hover:bg-white/5 text-sm text-slate-400 
-                           hover:text-blue-400 transition-colors flex-shrink-0"
+                className="flex items-center gap-1.5 px-1.5 py-0.5 rounded hover:bg-cyan-500/10 text-sm text-cyan-500 
+                           hover:text-cyan-400 transition-colors flex-shrink-0"
               >
                 <Monitor className="w-3.5 h-3.5" />
                 <span className="text-xs font-medium">Bu Bilgisayar</span>
@@ -311,8 +311,8 @@ export default function Files() {
                   <ChevronRight className="w-3.5 h-3.5 text-slate-600 mx-0.5" />
                   <button
                     onClick={(e) => { e.stopPropagation(); handleBreadcrumbClick(i) }}
-                    className="px-1.5 py-0.5 rounded hover:bg-white/5 text-sm text-slate-300 
-                               hover:text-blue-400 font-medium transition-colors truncate max-w-[150px]"
+                    className="px-1.5 py-0.5 rounded hover:bg-cyan-500/10 text-sm text-cyan-300 
+                               hover:text-cyan-400 font-mono font-medium transition-colors truncate max-w-[150px]"
                     title={part}
                   >
                     {part}
@@ -329,25 +329,25 @@ export default function Files() {
           <input
             value={search}
             onChange={e => setSearch(e.target.value)}
-            className="w-full bg-[#0a0f1c] border border-[#1e2d44] rounded-lg pl-9 pr-3 py-1.5 text-sm 
-                       text-slate-300 placeholder-slate-600 outline-none focus:border-blue-500/40 transition-colors"
+             className="w-full bg-[#050810] border border-cyan-900/40 rounded-lg pl-9 pr-3 py-1.5 text-sm 
+                        text-cyan-300 placeholder-cyan-800/40 outline-none focus:border-cyan-500/40 transition-colors font-mono"
             placeholder="Ara..."
             onClick={e => e.stopPropagation()}
           />
         </div>
 
         {/* View Mode */}
-        <div className="flex items-center gap-0 border border-[#1e2d44] rounded-lg overflow-hidden flex-shrink-0">
+         <div className="flex items-center gap-0 border border-cyan-900/40 rounded-lg overflow-hidden flex-shrink-0">
           <button
             onClick={() => setViewMode('grid')}
-            className={`p-2 transition-colors ${viewMode === 'grid' ? 'bg-blue-500/15 text-blue-400' : 'text-slate-500 hover:text-slate-300 hover:bg-white/5'}`}
+            className={`p-2 transition-colors ${viewMode === 'grid' ? 'bg-cyan-500/15 text-cyan-400' : 'text-cyan-700 hover:text-cyan-400 hover:bg-cyan-500/10'}`}
             title="Izgara görünümü"
           >
             <LayoutGrid className="w-4 h-4" />
           </button>
           <button
             onClick={() => setViewMode('list')}
-            className={`p-2 transition-colors ${viewMode === 'list' ? 'bg-blue-500/15 text-blue-400' : 'text-slate-500 hover:text-slate-300 hover:bg-white/5'}`}
+            className={`p-2 transition-colors ${viewMode === 'list' ? 'bg-cyan-500/15 text-cyan-400' : 'text-cyan-700 hover:text-cyan-400 hover:bg-cyan-500/10'}`}
             title="Liste görünümü"
           >
             <LayoutList className="w-4 h-4" />
@@ -356,7 +356,7 @@ export default function Files() {
       </div>
 
       {/* ═══ CONTENT AREA ═══ */}
-      <div className="flex-1 bg-[#0a0f1c] border border-[#1e2d44] rounded-xl overflow-auto min-h-0">
+       <div className="flex-1 bg-[#050810] border border-cyan-900/30 rounded-xl overflow-auto min-h-0">
         {loading ? (
           <div className="flex items-center justify-center h-full">
             <div className="text-center">
@@ -380,9 +380,9 @@ export default function Files() {
             {filteredFolders.map(folder => (
               <div
                 key={'folder-' + folder}
-                className={`group flex flex-col items-center gap-1.5 p-3 rounded-xl cursor-pointer transition-all
-                           select-none hover:bg-white/[0.03]
-                           ${selected === 'folder-' + folder ? 'bg-blue-500/10 ring-1 ring-blue-500/30' : ''}`}
+                 className={`group flex flex-col items-center gap-1.5 p-3 rounded-xl cursor-pointer transition-all
+                            select-none hover:bg-cyan-500/5
+                            ${selected === 'folder-' + folder ? 'bg-cyan-500/10 ring-1 ring-cyan-500/30' : ''}`}
                 onClick={(e) => { e.stopPropagation(); setSelected('folder-' + folder) }}
                 onDoubleClick={() => navigateTo(currentDir ? currentDir + '\\' + folder : folder)}
                 onContextMenu={(e) => handleContextMenu(e, folder, 'folder')}
@@ -401,9 +401,9 @@ export default function Files() {
             {filteredFiles.map(f => (
               <div
                 key={'file-' + f.path}
-                className={`group flex flex-col items-center gap-1.5 p-3 rounded-xl cursor-pointer transition-all
-                           select-none hover:bg-white/[0.03]
-                           ${selected === f.path ? 'bg-blue-500/10 ring-1 ring-blue-500/30' : ''}
+                 className={`group flex flex-col items-center gap-1.5 p-3 rounded-xl cursor-pointer transition-all
+                            select-none hover:bg-cyan-500/5
+                            ${selected === f.path ? 'bg-cyan-500/10 ring-1 ring-cyan-500/30' : ''}
                            ${deleting === f.path ? 'opacity-40 pointer-events-none' : ''}`}
                 onClick={(e) => { e.stopPropagation(); setSelected(f.path) }}
                 onContextMenu={(e) => handleContextMenu(e, f, 'file')}
@@ -430,7 +430,7 @@ export default function Files() {
           /* ─── LIST VIEW ─── */
           <table className="w-full text-sm">
             <thead className="sticky top-0 z-10">
-              <tr className="border-b border-[#1e2d44] bg-[#0c1220]">
+               <tr className="border-b border-cyan-900/30 bg-[#070b14]">
                 {['Ad', 'Tür', 'Boyut', 'Makine', 'Tarih', ''].map(h => (
                   <th key={h} className="px-4 py-2.5 text-left text-[10px] font-semibold text-slate-500 uppercase tracking-wider first:pl-5 last:pr-5">
                     {h}
@@ -535,8 +535,8 @@ export default function Files() {
       {/* ═══ CONTEXT MENU ═══ */}
       {contextMenu && (
         <div
-          className="fixed z-50 bg-[#0d1525] border border-[#1e2d44] rounded-xl shadow-2xl shadow-black/50 
-                     py-1.5 min-w-[180px] animate-in fade-in"
+           className="fixed z-50 bg-[#0b1221] border border-cyan-900/30 rounded-xl shadow-2xl shadow-black/50 
+                      py-1.5 min-w-[180px] animate-fade-in"
           style={{ left: contextMenu.x, top: contextMenu.y }}
           onClick={e => e.stopPropagation()}
         >
@@ -577,8 +577,8 @@ export default function Files() {
 
       {/* ═══ TOAST ═══ */}
       {toast && (
-        <div className="fixed bottom-6 right-6 bg-[#0d1525] border border-[#1e2d44] rounded-xl px-5 py-3.5 text-sm 
-                        shadow-2xl shadow-black/40 z-50 text-slate-200 backdrop-blur-lg">
+         <div className="fixed bottom-6 right-6 bg-[#0b1221] border border-cyan-500/20 rounded-xl px-5 py-3.5 text-sm 
+                         shadow-2xl shadow-cyan-500/5 z-50 text-cyan-200 backdrop-blur-lg font-mono animate-slide-up">
           {toast}
         </div>
       )}
