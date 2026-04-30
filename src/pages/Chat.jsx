@@ -39,7 +39,7 @@ export default function Chat() {
     try {
       // 1. Resmi kütüphaneyi başlat
       const genAI = new GoogleGenerativeAI(apiKey)
-      const model = genAI.getGenerativeModel({ model: "gemini-pro"})
+      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash"})
 
       // 2. Ajanın topladığı sistem bilgisini çek
       const stats = await api.getStats()
