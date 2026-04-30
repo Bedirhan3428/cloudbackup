@@ -42,7 +42,9 @@ export default function Logs() {
     setLoading(true)
     try {
       const d = await api.getLogs(lines)
-      setLogs(d.logs || [])
+      // Loglar backend'den yeni-den-eskiye geliyorsa, terminal görünümü için ters çeviriyoruz
+      const reversed = (d.logs || []).slice().reverse()
+      setLogs(reversed)
     } catch {}
     setLoading(false)
   }

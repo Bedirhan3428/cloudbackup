@@ -7,6 +7,7 @@ import Files from './pages/Files'
 import Settings from './pages/Settings'
 import Logs from './pages/Logs'
 import SystemMap from './pages/SystemMap'
+import Chat from './pages/Chat'
 
 function Protected({ children }) {
   return getKey() ? children : <Navigate to="/login" replace />
@@ -24,6 +25,7 @@ export default function App() {
           <Route path="settings" element={<Settings />} />
           <Route path="logs" element={<Logs />} />
           <Route path="system-map" element={<SystemMap />} />
+          <Route path="chat" element={<Chat />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

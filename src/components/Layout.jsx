@@ -1,11 +1,12 @@
 import { Outlet, NavLink, useNavigate } from 'react-router-dom'
 import { useState, useEffect } from 'react'
-import { Cpu, LayoutDashboard, FolderOpen, Settings, FileText, LogOut, Monitor, HardDrive, Zap } from 'lucide-react'
+import { Cpu, LayoutDashboard, FolderOpen, Settings, FileText, LogOut, Monitor, HardDrive, Zap, Sparkles } from 'lucide-react'
 import { clearKey, api, getKey } from '../api'
 
 const navItems = [
   { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
   { to: '/files',     icon: FolderOpen,      label: 'Dosyalar' },
+  { to: '/chat',      icon: Sparkles,        label: 'Intelligence' }, // AI Sayfası
   { to: '/settings',  icon: Settings,        label: 'Ayarlar' },
   { to: '/logs',      icon: FileText,        label: 'Terminal' },
   { to: '/system-map',icon: HardDrive,       label: 'Explorer' },
