@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { api } from '../api'
-import { Bot, Send, Terminal, Sparkles, Cpu, Search, Trash2 } from 'lucide-center'
+import { Bot, Send, Terminal, Sparkles, Cpu, Search, Trash2 } from 'lucide-react'
 
 // Gemini API URL
 const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent"
