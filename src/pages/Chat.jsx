@@ -39,7 +39,9 @@ export default function Chat() {
 
     const userMsg = input.trim()
     setInput('')
-    setMessages(prev => [...prev, { role: 'user', text: userMsg }])
+    // Mesajları kopyala ve yenisini ekle
+    const newMessages = [...messages, { role: 'user', text: userMsg }]
+    setMessages(newMessages)
     setLoading(true)
 
     try {
@@ -48,28 +50,35 @@ export default function Chat() {
       const allAgentsData = (agentsRes.agents || []).map(a => ({
         machine: a.machine_name,
         online: a.online,
-        // Ajanın gönderdiği o derin tarama listesi (important_files)
         important_files: a.directory_map?._ai_knowledge?.important_files || [],
         drives: a.directory_map?._ai_knowledge?.drives || []
       }))
       
-      // 2. Prompt'u hazırla
-      const prompt = `
+      // 2. Sistem Talimatlarını (Instructions) hazırla
+      const systemInstruction = `
         Sen "Ashfir Intelligence" (AI) adında, sızılan bilgisayarları analiz eden profesyonel bir asistansın.
-        Aşağıda sistemdeki bağlı ajanların (bilgisayarların) dosya haritaları bulunmaktadır.
-        Kullanıcının sorusuna bu dosya yapılarına göre cevap ver.
-        Dosya içeriğini bilmiyorsun, sadece isimleri ve konumları biliyorsun.
-        Eğer ilginç bir klasör veya dosya görürsen kullanıcıya öner.
-        Cevaplarını kısa, profesyonel ve bir hacker asistanı tonunda ver.
         
-        BAGLI AJANLAR VE DOSYALARI:
+        SISTEMDEKI DOSYALAR:
         ${JSON.stringify(allAgentsData, null, 2)}
         
-        KULLANICI SORUSU:
-        ${userMsg}
+        ANALIZ KURALLARI:
+        - Kullanıcı "sınav", "soru", "yazılı" veya "ders" sorduğunda; sadece bu kelimeleri arama. 
+        - "1. dönem", "2. yazılı", "sorular", "cevap anahtarı", "notlar", "ders notu" gibi terimleri de tara.
+        - Matematik, Fizik, Kimya, Biyoloji, Türkçe, Edebiyat gibi tüm ders isimlerini içeren dosya ve klasörleri önceliklendir.
+        - Dosya içeriğini bilmiyorsun, sadece isimleri ve konumları biliyorsun.
+        - Cevaplarını kısa, profesyonel ve bir hacker asistanı tonunda ver.
       `
 
-      // 3. Groq API'ye istek at (OpenAI uyumlu)
+      // 3. Konuşma Geçmişini Hazırla
+      const apiMessages = [
+        { role: "system", content: systemInstruction },
+        ...newMessages.map(m => ({
+          role: m.role === 'ai' ? 'assistant' : 'user',
+          content: m.text
+        }))
+      ]
+
+      // 4. Groq API'ye istek at (OpenAI uyumlu)
       const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
         method: 'POST',
         headers: {
@@ -78,8 +87,8 @@ export default function Chat() {
         },
         body: JSON.stringify({
           model: selectedModel,
-          messages: [{ role: "user", content: prompt }],
-          temperature: 0.7
+          messages: apiMessages,
+          temperature: 0.6
         })
       })
 
