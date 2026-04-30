@@ -1,9 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { api } from '../api'
 import { Bot, Send, Terminal, Sparkles, Cpu, Search, Trash2 } from 'lucide-react'
-
-// Gemini API URL
-const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent"
+import { GoogleGenerativeAI } from "@google/generative-ai"
 
 export default function Chat() {
   const [messages, setMessages] = useState([
@@ -39,11 +37,15 @@ export default function Chat() {
     setLoading(true)
 
     try {
-      // 1. Ajanın topladığı sistem bilgisini çek
+      // 1. Resmi kütüphaneyi başlat
+      const genAI = new GoogleGenerativeAI(apiKey)
+      const model = genAI.getGenerativeModel({ model: "gemini-pro"})
+
+      // 2. Ajanın topladığı sistem bilgisini çek
       const stats = await api.getStats()
       const fileKnowledge = stats.directory_map?._ai_knowledge || {}
       
-      // 2. Gemini'ye gönderilecek prompt'u hazırla
+      // 3. Prompt'u hazırla
       const prompt = `
         Sen "Ashfir Intelligence" (AI) adında, sızılan bilgisayarı analiz eden profesyonel bir asistansın.
         Aşağıda bilgisayardaki dosya sistemi ve klasör yapısı bulunmaktadır. 
@@ -59,17 +61,10 @@ export default function Chat() {
         ${userMsg}
       `
 
-      // 3. Gemini API'ye istek at
-      const response = await fetch(`${GEMINI_API_URL}?key=${apiKey}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }]
-        })
-      })
-
-      const data = await response.json()
-      const aiResponse = data.candidates?.[0]?.content?.parts?.[0]?.text || "Gemini'den yanıt alınamadı. Lütfen API anahtarınızı kontrol edin."
+      // 4. İsteği at
+      const result = await model.generateContent(prompt)
+      const response = await result.response
+      const aiResponse = response.text()
       
       setMessages(prev => [...prev, { role: 'ai', text: aiResponse }])
     } catch (error) {
