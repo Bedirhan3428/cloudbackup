@@ -162,7 +162,7 @@ export default function Logs() {
                       {String(i + 1).padStart(3, '0')}
                     </span>
                     <span className={`flex-shrink-0 ${colorClass} opacity-70`}>{prefix}</span>
-                    <span className={`${colorClass} break-all`}>{text}</span>
+                    <span className={`${colorClass} break-all whitespace-pre-wrap`}>{text}</span>
                   </div>
                 )
               })
