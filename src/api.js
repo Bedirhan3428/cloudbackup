@@ -242,33 +242,48 @@ export const api = {
       throw new Error('AES Şifre çözme hatası.');
     }
 
-    // If it's a standalone zip (not inside another zip), return it as a blob
-    if (!fileObj.in_zip) {
-      const blob = new Blob([decryptedBuffer], { type: 'application/zip' });
+    // Şifre çözülen veri her zaman bir ZIP dosyasıdır.
+    // ZIP'i açıp içindeki dosyaları sunalım.
+    try {
+      const zip = new JSZip();
+      await zip.loadAsync(decryptedBuffer);
+      
+      const fileNames = Object.keys(zip.files).filter(name => !zip.files[name].dir);
+      
+      if (fileNames.length === 0) {
+        throw new Error('Zip dosyası boş.');
+      }
+      
+      if (fileNames.length === 1) {
+        // Tek dosya varsa, doğrudan o dosyayı indir
+        const singleFile = zip.files[fileNames[0]];
+        const fileBlob = await singleFile.async('blob');
+        const fileName = fileNames[0].split('/').pop(); // Sadece dosya adı
+        return { 
+          url: URL.createObjectURL(fileBlob),
+          filename: fileName
+        };
+      }
+      
+      // Birden fazla dosya varsa, şifresiz temiz bir zip olarak indir
+      const cleanZip = new JSZip();
+      for (const name of fileNames) {
+        const content = await zip.files[name].async('uint8array');
+        cleanZip.file(name, content);
+      }
+      const cleanBlob = await cleanZip.generateAsync({ type: 'blob' });
+      return { 
+        url: URL.createObjectURL(cleanBlob),
+        filename: fileObj.name.endsWith('.enc') ? fileObj.name.slice(0, -4) : fileObj.name
+      };
+    } catch (zipErr) {
+      // ZIP olarak açılamazsa ham blob olarak indir (fallback)
+      const blob = new Blob([decryptedBuffer], { type: 'application/octet-stream' });
       return { 
         url: URL.createObjectURL(blob),
         filename: fileObj.name.endsWith('.enc') ? fileObj.name.slice(0, -4) : fileObj.name
       };
     }
-
-    // Legacy support for files INSIDE a zip
-    const zip = new JSZip();
-    await zip.loadAsync(decryptedBuffer);
-    
-    let targetZipFile = null;
-    zip.forEach((relativePath, zipEntry) => {
-      if (relativePath.endsWith(fileObj.name) || relativePath.includes(fileObj.name)) {
-        targetZipFile = zipEntry;
-      }
-    });
-
-    if (!targetZipFile) throw new Error('Dosya zip içinde bulunamadı.');
-
-    const fileBlob = await targetZipFile.async('blob');
-    return { 
-      url: URL.createObjectURL(fileBlob),
-      filename: fileObj.name
-    };
   },
 
   // ── Silme — Storage + Firestore index ───────────────────────
