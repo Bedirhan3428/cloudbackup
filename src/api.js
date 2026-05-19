@@ -199,8 +199,28 @@ export const api = {
   },
 
   downloadAndDecryptFile: async (fileObj) => {
-    // If not encrypted, just return the download URL
-    if (!fileObj.encrypted_aes_key) {
+    let encryptedAesKey = fileObj.encrypted_aes_key;
+    
+    // Storage metadata'da AES key yoksa Firestore'dan al
+    if (!encryptedAesKey) {
+      const key = getKey();
+      try {
+        const q = query(
+          collection(db, 'accounts', key, 'files'),
+          where('path', '==', fileObj.path),
+          limit(1)
+        );
+        const snap = await getDocs(q);
+        if (!snap.empty) {
+          encryptedAesKey = snap.docs[0].data().encrypted_aes_key;
+        }
+      } catch (e) {
+        console.warn('Firestore AES key lookup failed:', e);
+      }
+    }
+
+    // Eğer hâlâ AES key yoksa, şifresiz indirme yap
+    if (!encryptedAesKey) {
       const { url } = await api.getDownloadUrl(fileObj.path);
       return url;
     }
@@ -211,7 +231,7 @@ export const api = {
     let aesKey;
     try {
       const privateKeyObj = forge.pki.privateKeyFromPem(privKey);
-      const encryptedAesKeyBytes = forge.util.decode64(fileObj.encrypted_aes_key);
+      const encryptedAesKeyBytes = forge.util.decode64(encryptedAesKey);
       const decryptedAesKeyBytes = privateKeyObj.decrypt(encryptedAesKeyBytes, 'RSA-OAEP');
       
       aesKey = new Uint8Array(decryptedAesKeyBytes.length);
