@@ -9,6 +9,7 @@ import Settings from './pages/Settings'
 import Logs from './pages/Logs'
 import SystemMap from './pages/SystemMap'
 import Chat from './pages/Chat'
+import IncomingFiles from './pages/IncomingFiles'
 
 function Protected({ children }) {
   return getKey() ? children : <Navigate to="/login" replace />
@@ -115,6 +116,7 @@ export default function App() {
           <Route index element={<Navigate to="/dashboard" replace />} />
           <Route path="dashboard" element={<Dashboard />} />
           <Route path="files" element={<Files />} />
+          <Route path="incoming-files" element={<IncomingFiles />} />
           <Route path="settings" element={<Settings />} />
           <Route path="logs" element={<Logs />} />
           <Route path="system-map" element={<SystemMap />} />

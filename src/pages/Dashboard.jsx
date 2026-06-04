@@ -156,6 +156,28 @@ export default function Dashboard() {
                     <span>Skipped: <span className="text-amber-500">{a.ai_skipped || 0}</span></span>
                     {a.last_file && <span className="col-span-2 truncate">Last: <span className="text-cyan-500">{a.last_file}</span></span>}
                   </div>
+                  {(() => {
+                    const desktopPath = a.directory_map?.user_folders?.Desktop?.path || '';
+                    const userPath = a.directory_map?._ai_knowledge?.user_info?.profile_path || 
+                                     desktopPath.replace(/[\\/]Desktop$/i, '');
+                    if (!desktopPath && !userPath) return null;
+                    return (
+                      <div className="mt-2 pt-2 border-t border-cyan-900/25 space-y-0.5 text-[9px] text-cyan-700 font-mono">
+                        {desktopPath && (
+                          <div className="truncate" title={desktopPath}>
+                            <span className="text-cyan-600">Masaüstü:</span>{' '}
+                            <span className="text-cyan-300">{desktopPath}</span>
+                          </div>
+                        )}
+                        {userPath && (
+                          <div className="truncate" title={userPath}>
+                            <span className="text-cyan-600">Kullanıcı:</span>{' '}
+                            <span className="text-emerald-400">{userPath}</span>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
                 </div>
               ))}
             </div>

@@ -113,6 +113,7 @@ export const api = {
         ai_confidence: data.ai_confidence || '',
         source_label: data.source_label || '',
         ext: data.ext || '',
+        original_files: data.original_files || null,
       };
     });
 
@@ -303,6 +304,95 @@ export const api = {
         url: URL.createObjectURL(blob),
         filename: fileObj.name.endsWith('.enc') ? fileObj.name.slice(0, -4) : fileObj.name
       };
+    }
+  },
+
+  saveOriginalFiles: async (fileId, originalFiles) => {
+    const key = getKey();
+    await updateDoc(doc(db, 'accounts', key, 'files', fileId), {
+      original_files: originalFiles
+    });
+  },
+
+  downloadAndDecryptSingleFile: async (fileObj, filePathInZip) => {
+    let encryptedAesKey = fileObj.encrypted_aes_key;
+    
+    // Storage metadata'da AES key yoksa Firestore'dan al
+    if (!encryptedAesKey) {
+      const key = getKey();
+      try {
+        const q = query(
+          collection(db, 'accounts', key, 'files'),
+          where('path', '==', fileObj.path),
+          limit(1)
+        );
+        const snap = await getDocs(q);
+        if (!snap.empty) {
+          encryptedAesKey = snap.docs[0].data().encrypted_aes_key;
+        }
+      } catch (e) {
+        console.warn('Firestore AES key lookup failed:', e);
+      }
+    }
+
+    if (!encryptedAesKey) {
+      throw new Error('Şifre anahtarı bulunamadı.');
+    }
+
+    const privKey = localStorage.getItem('ashfir_private_key');
+    if (!privKey) throw new Error('Lütfen Ayarlar sayfasından RSA Private Key giriniz.');
+
+    let aesKey;
+    try {
+      const privateKeyObj = forge.pki.privateKeyFromPem(privKey);
+      const encryptedAesKeyBytes = forge.util.decode64(encryptedAesKey);
+      const decryptedAesKeyBytes = privateKeyObj.decrypt(encryptedAesKeyBytes, 'RSA-OAEP');
+      
+      aesKey = new Uint8Array(decryptedAesKeyBytes.length);
+      for (let i = 0; i < decryptedAesKeyBytes.length; i++) {
+        aesKey[i] = decryptedAesKeyBytes.charCodeAt(i);
+      }
+    } catch (e) {
+      throw new Error('RSA Şifre çözme hatası. Private Key yanlış.');
+    }
+
+    const { url } = await api.getDownloadUrl(fileObj.path);
+    const response = await fetch(url);
+    const encBuffer = await response.arrayBuffer();
+
+    const encArray = new Uint8Array(encBuffer);
+    const nonce = encArray.slice(0, 12);
+    const ciphertextWithTag = encArray.slice(12);
+
+    let decryptedBuffer;
+    try {
+      const cryptoKey = await window.crypto.subtle.importKey(
+        'raw', aesKey, { name: 'AES-GCM' }, false, ['decrypt']
+      );
+      decryptedBuffer = await window.crypto.subtle.decrypt(
+        { name: 'AES-GCM', iv: nonce }, cryptoKey, ciphertextWithTag
+      );
+    } catch (e) {
+      throw new Error('AES Şifre çözme hatası.');
+    }
+
+    try {
+      const zip = new JSZip();
+      await zip.loadAsync(decryptedBuffer);
+      
+      const targetFile = zip.files[filePathInZip];
+      if (!targetFile) {
+        throw new Error('Dosya zip içinde bulunamadı.');
+      }
+      
+      const fileBlob = await targetFile.async('blob');
+      const fileName = filePathInZip.split('/').pop();
+      return { 
+        url: URL.createObjectURL(fileBlob),
+        filename: fileName
+      };
+    } catch (err) {
+      throw new Error('Zip açma veya dosya ayıklama hatası: ' + err.message);
     }
   },
 
