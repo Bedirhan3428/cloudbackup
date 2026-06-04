@@ -380,13 +380,20 @@ export const api = {
       const zip = new JSZip();
       await zip.loadAsync(decryptedBuffer);
       
-      const targetFile = zip.files[filePathInZip];
+      // Robust key lookup: search for a key in zip.files that matches or ends with the target path (ignoring case/slashes)
+      const normalizedTarget = filePathInZip.replace(/\\/g, '/').toLowerCase();
+      const zipKey = Object.keys(zip.files).find(key => {
+        const normalizedKey = key.replace(/\\/g, '/').toLowerCase();
+        return normalizedTarget.endsWith(normalizedKey) || normalizedKey.endsWith(normalizedTarget);
+      });
+      
+      const targetFile = zipKey ? zip.files[zipKey] : null;
       if (!targetFile) {
         throw new Error('Dosya zip içinde bulunamadı.');
       }
       
       const fileBlob = await targetFile.async('blob');
-      const fileName = filePathInZip.split('/').pop();
+      const fileName = (zipKey || filePathInZip).split('/').pop();
       return { 
         url: URL.createObjectURL(fileBlob),
         filename: fileName

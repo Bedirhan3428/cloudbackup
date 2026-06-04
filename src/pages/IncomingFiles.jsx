@@ -98,24 +98,47 @@ export default function IncomingFiles() {
   const allExtractedFiles = useMemo(() => {
     const files = []
     zips.forEach(z => {
-      if (z.original_files && Array.isArray(z.original_files)) {
+      if (z.original_files && Array.isArray(z.original_files) && z.original_files.length > 0) {
         z.original_files.forEach(f => {
-          const name = f.path.split(/[\\/]/).pop() || 'isimsiz'
+          if (!f) return
+          const filePath = f.path || f.name || ''
+          if (!filePath) return
+          const name = filePath.split(/[\\/]/).pop() || 'isimsiz'
           const ext = name.includes('.') ? name.split('.').pop().toLowerCase() : 'yok'
           files.push({
-            id: `${z.id}::${f.path}`,
+            id: `${z.id}::${filePath}`,
             name,
-            original_path: f.path,
+            original_path: filePath,
             size: f.size || 0,
             size_human: f.size ? humanSize(f.size) : '0 B',
             machine: z.machine || '—',
             backup_time: z.backup_time || z.updated || '',
-            zip_name: z.name,
+            zip_name: z.name || '—',
             zip_id: z.id,
             zip_obj: z,
             ext,
           })
         })
+      } else {
+        // Fallback for older archives that don't have original_files in Firestore
+        const filePath = z.original_path || z.name || ''
+        if (filePath) {
+          const name = filePath.split(/[\\/]/).pop() || 'isimsiz'
+          const ext = name.includes('.') ? name.split('.').pop().toLowerCase() : 'yok'
+          files.push({
+            id: `${z.id}::fallback`,
+            name: name.endsWith('.zip') || name.endsWith('.enc') ? z.name : name,
+            original_path: filePath,
+            size: z.size || 0,
+            size_human: z.size_human || (z.size ? humanSize(z.size) : '0 B'),
+            machine: z.machine || '—',
+            backup_time: z.backup_time || z.updated || '',
+            zip_name: z.name || '—',
+            zip_id: z.id,
+            zip_obj: z,
+            ext,
+          })
+        }
       }
     })
     return files
