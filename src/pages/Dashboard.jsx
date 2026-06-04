@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useMemo } from 'react'
 import { api } from '../api'
 import { useNavigate } from 'react-router-dom'
 import { HardDrive, Cloud, Cpu, Brain, RefreshCw, ChevronRight, Activity, Database, Zap } from 'lucide-react'
@@ -71,14 +71,17 @@ export default function Dashboard() {
     recent.forEach(z => {
       if (z.original_files && Array.isArray(z.original_files)) {
         z.original_files.forEach(f => {
-          const name = f.path.split(/[\\/]/).pop() || 'isimsiz'
+          if (!f) return
+          const filePath = f.path || f.name || ''
+          if (!filePath) return
+          const name = filePath.split(/[\\/]/).pop() || 'isimsiz'
           files.push({
             name,
-            original_path: f.path,
+            original_path: filePath,
             size_human: f.size ? humanSize(f.size) : '0 B',
-            machine: z.machine,
+            machine: z.machine || '—',
             backup_time: z.backup_time || z.updated || '',
-            zip_name: z.name
+            zip_name: z.name || '—'
           })
         })
       }
