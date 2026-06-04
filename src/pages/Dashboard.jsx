@@ -30,6 +30,14 @@ function timeAgo(str) {
   return Math.round(s / 86400) + 'gün önce'
 }
 
+function humanSize(bytes) {
+  if (!bytes) return '0 B'
+  const u = ['B', 'KB', 'MB', 'GB', 'TB']
+  let i = 0
+  while (bytes >= 1024 && i < u.length - 1) { bytes /= 1024; i++ }
+  return `${bytes.toFixed(1)} ${u[i]}`
+}
+
 const EXT_COLORS = ['#06b6d4','#10b981','#8b5cf6','#f59e0b','#ef4444','#3b82f6','#84cc16','#f43f5e']
 
 export default function Dashboard() {
@@ -37,6 +45,8 @@ export default function Dashboard() {
   const [agents, setAgents] = useState([])
   const [recent, setRecent] = useState([])
   const [loading, setLoading] = useState(true)
+  const [expandedFiles, setExpandedFiles] = useState({})
+  const [activeTab, setActiveTab] = useState('files') // 'files' | 'zips'
   const nav = useNavigate()
 
   const load = useCallback(async () => {
@@ -45,7 +55,7 @@ export default function Dashboard() {
       const [s, a, f] = await Promise.all([
         api.getStats(),
         api.getAgents(),
-        api.getFiles({ per_page: 8 }),
+        api.getFiles({ per_page: 100 }),
       ])
       setStats(s)
       setAgents(a.agents || [])
@@ -55,6 +65,26 @@ export default function Dashboard() {
   }, [])
 
   useEffect(() => { load(); const t = setInterval(load, 30000); return () => clearInterval(t) }, [load])
+
+  const recentFiles = useMemo(() => {
+    const files = []
+    recent.forEach(z => {
+      if (z.original_files && Array.isArray(z.original_files)) {
+        z.original_files.forEach(f => {
+          const name = f.path.split(/[\\/]/).pop() || 'isimsiz'
+          files.push({
+            name,
+            original_path: f.path,
+            size_human: f.size ? humanSize(f.size) : '0 B',
+            machine: z.machine,
+            backup_time: z.backup_time || z.updated || '',
+            zip_name: z.name
+          })
+        })
+      }
+    })
+    return files.sort((a, b) => new Date(b.backup_time) - new Date(a.backup_time)).slice(0, 100)
+  }, [recent])
 
   const extChartData = stats?.ext_stats
     ? Object.entries(stats.ext_stats).slice(0, 8).map(([k, v]) => ({ name: k, count: v }))
@@ -89,37 +119,82 @@ export default function Dashboard() {
         {/* Recent files - 2 cols */}
         <div className="col-span-2 card overflow-hidden animate-slide-up" style={{ animationDelay: '400ms' }}>
           <div className="flex items-center justify-between px-5 py-4 border-b border-cyan-900/30">
-            <h2 className="font-mono font-bold text-cyan-400 text-xs tracking-widest uppercase">Recent Backups</h2>
-            <button onClick={() => nav('/files')} className="text-[10px] text-cyan-600 hover:text-cyan-400 flex items-center gap-1 font-mono uppercase tracking-wider transition-colors">
-              View All <ChevronRight className="w-3 h-3" />
+            <div className="flex gap-4">
+              <button 
+                onClick={() => setActiveTab('files')}
+                className={`font-mono font-bold text-xs tracking-widest uppercase transition-all duration-200 ${activeTab === 'files' ? 'text-cyan-400 border-b border-cyan-500 pb-0.5' : 'text-cyan-700 hover:text-cyan-500'}`}
+              >
+                Son Gelen Dosyalar
+              </button>
+              <button 
+                onClick={() => setActiveTab('zips')}
+                className={`font-mono font-bold text-xs tracking-widest uppercase transition-all duration-200 ${activeTab === 'zips' ? 'text-cyan-400 border-b border-cyan-500 pb-0.5' : 'text-cyan-700 hover:text-cyan-500'}`}
+              >
+                Yedek Arşivleri
+              </button>
+            </div>
+            <button 
+              onClick={() => nav(activeTab === 'files' ? '/incoming-files' : '/files')} 
+              className="text-[10px] text-cyan-600 hover:text-cyan-400 flex items-center gap-1 font-mono uppercase tracking-wider transition-colors"
+            >
+              Hepsini Gör <ChevronRight className="w-3 h-3" />
             </button>
           </div>
-          <div>
-            {recent.length === 0 && !loading ? (
-              <div className="py-12 text-center text-cyan-700 text-xs font-mono">No files backed up yet</div>
-            ) : (
-              <table className="w-full text-sm">
-                <tbody>
-                  {recent.map((f, i) => (
-                    <tr key={f.path} className="border-b border-cyan-900/20 last:border-0 hover:bg-cyan-500/5 transition-colors">
-                      <td className="px-5 py-3">
-                        <div className="flex items-center gap-3">
-                          <span className="text-lg leading-none">{f.icon}</span>
-                          <div className="min-w-0">
-                            <div className="font-medium text-cyan-100 truncate max-w-[200px] text-xs">{f.name}</div>
-                            <div className="text-[9px] text-cyan-700 truncate max-w-[200px] font-mono">{f.original_path}</div>
+          <div className="max-h-[500px] overflow-y-auto custom-scrollbar">
+            {activeTab === 'files' ? (
+              recentFiles.length === 0 && !loading ? (
+                <div className="py-12 text-center text-cyan-700 text-xs font-mono">Henüz ayıklanmış dosya bulunamadı</div>
+              ) : (
+                <table className="w-full text-sm">
+                  <tbody>
+                    {recentFiles.map((file, i) => (
+                      <tr key={i} className="border-b border-cyan-900/20 last:border-0 hover:bg-cyan-500/5 transition-colors font-mono text-[11px]">
+                        <td className="px-5 py-2.5">
+                          <div className="flex items-center gap-3">
+                            <span className="text-sm leading-none">📄</span>
+                            <div className="min-w-0">
+                              <div className="font-bold text-cyan-100 truncate max-w-[220px]" title={file.name}>{file.name}</div>
+                              <div className="text-[9px] text-cyan-700 truncate max-w-[220px]" title={file.original_path}>{file.original_path}</div>
+                            </div>
                           </div>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 font-mono text-[10px] text-cyan-600 whitespace-nowrap">{f.size_human}</td>
-                      <td className="px-4 py-3">
-                        <span className="badge bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 text-[9px]">{f.machine}</span>
-                      </td>
-                      <td className="px-4 py-3 text-[10px] text-cyan-700 whitespace-nowrap font-mono">{timeAgo(f.backup_time || f.updated)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                        </td>
+                        <td className="px-4 py-2.5 text-cyan-600 whitespace-nowrap">{file.size_human}</td>
+                        <td className="px-4 py-2.5 hidden sm:table-cell">
+                          <span className="badge bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 text-[9px] uppercase">{file.machine}</span>
+                        </td>
+                        <td className="px-4 py-2.5 text-slate-500 whitespace-nowrap text-right">{timeAgo(file.backup_time)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )
+            ) : (
+              recent.length === 0 && !loading ? (
+                <div className="py-12 text-center text-cyan-700 text-xs font-mono">Henüz yedek yüklenmemiş</div>
+              ) : (
+                <table className="w-full text-sm">
+                  <tbody>
+                    {recent.slice(0, 15).map((f, i) => (
+                      <tr key={f.path} className="border-b border-cyan-900/20 last:border-0 hover:bg-cyan-500/5 transition-colors font-mono text-[11px]">
+                        <td className="px-5 py-3">
+                          <div className="flex items-center gap-3">
+                            <span className="text-lg leading-none">{f.icon}</span>
+                            <div className="min-w-0">
+                              <div className="font-medium text-cyan-100 truncate max-w-[200px] text-xs">{f.name}</div>
+                              <div className="text-[9px] text-cyan-700 truncate max-w-[200px]">{f.original_path}</div>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 text-[10px] text-cyan-600 whitespace-nowrap">{f.size_human}</td>
+                        <td className="px-4 py-3">
+                          <span className="badge bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 text-[9px] uppercase">{f.machine}</span>
+                        </td>
+                        <td className="px-4 py-3 text-[10px] text-cyan-700 whitespace-nowrap text-right">{timeAgo(f.backup_time || f.updated)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )
             )}
           </div>
         </div>
@@ -178,6 +253,38 @@ export default function Dashboard() {
                       </div>
                     );
                   })()}
+                  
+                  {/* Collapsible Recent Files */}
+                  <button 
+                    onClick={() => setExpandedFiles(prev => ({ ...prev, [a.machine_name]: !prev[a.machine_name] }))}
+                    className="w-full flex items-center justify-between mt-2 pt-2 border-t border-cyan-900/25 text-[9px] font-mono text-cyan-500 hover:text-cyan-400 transition-colors uppercase font-bold text-left"
+                  >
+                    <span>Son Gelen Dosyalar ({a.directory_map?.recent_files?.length || 0})</span>
+                    <span className="text-[7px]">{expandedFiles[a.machine_name] ? '▼' : '▶'}</span>
+                  </button>
+
+                  {expandedFiles[a.machine_name] && (
+                    <div className="mt-2 space-y-1.5 max-h-[180px] overflow-y-auto pr-1 custom-scrollbar">
+                      {(!a.directory_map?.recent_files || a.directory_map.recent_files.length === 0) ? (
+                        <div className="text-[9px] text-cyan-800 font-mono italic p-1">Son dosya bilgisi yok</div>
+                      ) : (
+                        a.directory_map.recent_files.map((file, idx) => (
+                          <div key={idx} className="bg-[#050810]/80 border border-cyan-950/60 rounded p-1.5 flex flex-col space-y-0.5 font-mono text-[9px] hover:border-cyan-500/20 transition-colors">
+                            <div className="flex items-start justify-between gap-1.5">
+                              <span className="text-cyan-200 font-bold truncate max-w-[130px]" title={file.name}>
+                                📄 {file.name}
+                              </span>
+                              <span className="text-cyan-500/80 whitespace-nowrap">{file.size_human}</span>
+                            </div>
+                            <div className="flex justify-between text-[8px] text-cyan-700/80 gap-2">
+                              <span className="truncate max-w-[110px]" title={file.path}>{file.path}</span>
+                              <span className="text-slate-600">{file.modified?.split(' ')[1] || file.modified}</span>
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
