@@ -87,6 +87,7 @@ export default function Settings() {
   const [setupMode, setSetupMode] = useState(false)
   const [authError, setAuthError] = useState('')
   const [newPassword, setNewPassword] = useState('')
+  const [newPrivacyPassword, setNewPrivacyPassword] = useState('')
 
   // Self-Destruct state
   const [agents, setAgents]                 = useState([])
@@ -571,6 +572,33 @@ export default function Settings() {
                   alert('Yeni şifre uygulandı. Değişikliklerin kaydedilmesi için yukarıdaki "DEPLOY" butonuna basarak kaydedin.');
                 }}
                 className="btn-ghost flex-shrink-0"
+              >
+                Uygula
+              </button>
+            </div>
+          </div>
+          <div className="border-t border-cyan-900/30 pt-4 mt-4">
+            <label className="block text-[10px] font-mono font-bold text-amber-500 uppercase tracking-widest mb-2">2. Güvenlik (Gizlilik/Karartma) Şifresini Güncelle</label>
+            <div className="flex gap-2">
+              <input
+                type="password"
+                className="inp text-xs font-mono border-amber-500/20 focus:border-amber-500/40"
+                placeholder="Yeni gizlilik şifresi girin (en az 6 karakter)..."
+                value={newPrivacyPassword}
+                onChange={e => setNewPrivacyPassword(e.target.value)}
+              />
+              <button 
+                onClick={async () => {
+                  if (newPrivacyPassword.trim().length < 6) {
+                    alert('Şifre en az 6 karakter olmalıdır.');
+                    return;
+                  }
+                  const hash = await sha256(newPrivacyPassword.trim());
+                  set('privacy_password_hash', hash);
+                  setNewPrivacyPassword('');
+                  alert('Yeni gizlilik şifresi uygulandı. Değişikliklerin kaydedilmesi için yukarıdaki "DEPLOY" butonuna basarak kaydedin.');
+                }}
+                className="btn-ghost flex-shrink-0 text-amber-400 border-amber-500/30 hover:border-amber-500/60"
               >
                 Uygula
               </button>

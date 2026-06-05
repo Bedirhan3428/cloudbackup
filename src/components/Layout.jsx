@@ -1,7 +1,53 @@
 import { Outlet, NavLink, useNavigate } from 'react-router-dom'
 import { useState, useEffect } from 'react'
-import { Cpu, LayoutDashboard, FolderOpen, Settings, FileText, LogOut, Monitor, HardDrive, Zap, Sparkles, List } from 'lucide-react'
+import { Cpu, LayoutDashboard, FolderOpen, Settings, FileText, LogOut, Monitor, HardDrive, Zap, Sparkles, List, Shield } from 'lucide-react'
 import { clearKey, api, getKey } from '../api'
+
+const scrambleChars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()_+{}|:<>?';
+
+function scrambleText(text) {
+  if (!text) return text;
+  return text.split('').map(char => {
+    if (/\s/.test(char)) return char;
+    return scrambleChars.charAt(Math.floor(Math.random() * scrambleChars.length));
+  }).join('');
+}
+
+function scrambleDOM(node) {
+  if (node.nodeType === Node.TEXT_NODE) {
+    if (node.nodeValue.trim().length > 0) {
+      let parent = node.parentElement;
+      let isNoScramble = false;
+      while (parent) {
+        if (
+          parent.classList?.contains('no-scramble') ||
+          parent.id === 'privacy_unlock_container' ||
+          parent.tagName === 'INPUT' ||
+          parent.tagName === 'TEXTAREA'
+        ) {
+          isNoScramble = true;
+          break;
+        }
+        parent = parent.parentElement;
+      }
+      if (!isNoScramble) {
+        node.nodeValue = scrambleText(node.nodeValue);
+      }
+    }
+  } else {
+    for (let i = 0; i < node.childNodes.length; i++) {
+      scrambleDOM(node.childNodes[i]);
+    }
+  }
+}
+
+async function sha256(message) {
+  const msgBuffer = new TextEncoder().encode(message);
+  const hashBuffer = await window.crypto.subtle.digest('SHA-256', msgBuffer);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  return hashHex;
+}
 
 const navItems = [
   { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
@@ -16,6 +62,84 @@ const navItems = [
 export default function Layout() {
   const navigate = useNavigate()
   const [agents, setAgents] = useState([])
+
+  // Privacy Protection State
+  const [privacyLocked, setPrivacyLocked] = useState(false)
+  const [privacyHash, setPrivacyHash] = useState(null)
+  const [privacyInput, setPrivacyInput] = useState('')
+  const [privacyError, setPrivacyError] = useState('')
+
+  useEffect(() => {
+    api.getConfig().then(d => {
+      if (d.privacy_password_hash) {
+        setPrivacyHash(d.privacy_password_hash)
+        if (localStorage.getItem('privacy_unlocked') !== 'true') {
+          setPrivacyLocked(true)
+        }
+      }
+    }).catch(() => {})
+  }, [])
+
+  // Global Obfuscator Effect
+  useEffect(() => {
+    if (!privacyLocked) return;
+
+    let observer = null;
+    
+    // Initial run
+    scrambleDOM(document.body);
+
+    observer = new MutationObserver(() => {
+      observer.disconnect();
+      scrambleDOM(document.body);
+      observer.observe(document.body, {
+        childList: true,
+        subtree: true,
+        characterData: true
+      });
+    });
+
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true,
+      characterData: true
+    });
+
+    const interval = setInterval(() => {
+      if (observer) observer.disconnect();
+      scrambleDOM(document.body);
+      if (observer) {
+        observer.observe(document.body, {
+          childList: true,
+          subtree: true,
+          characterData: true
+        });
+      }
+    }, 100);
+
+    return () => {
+      if (observer) observer.disconnect();
+      clearInterval(interval);
+    };
+  }, [privacyLocked]);
+
+  async function handlePrivacyUnlock() {
+    setPrivacyError('')
+    if (!privacyInput.trim()) {
+      setPrivacyError('Şifre boş olamaz.')
+      return
+    }
+    const hash = await sha256(privacyInput.trim())
+    if (hash === privacyHash) {
+      localStorage.setItem('privacy_unlocked', 'true')
+      setPrivacyLocked(false)
+      setPrivacyInput('')
+      setPrivacyError('')
+      window.location.reload()
+    } else {
+      setPrivacyError('Hatalı şifre. Lütfen tekrar deneyin.')
+    }
+  }
 
   useEffect(() => {
     const load = () => api.getAgents().then(d => setAgents(d.agents || [])).catch(() => {})
@@ -127,6 +251,65 @@ export default function Layout() {
           <Outlet />
         </div>
       </div>
+
+      {/* Privacy lock screen modal */}
+      {privacyLocked && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/95 backdrop-blur-md no-scramble animate-fade-in" id="privacy_unlock_container">
+          <div className="card p-6 border-red-500/20 bg-[#0b1221]/95 w-full max-w-md shadow-2xl relative overflow-hidden">
+            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-red-500 via-amber-500 to-red-500" />
+            
+            <div className="flex flex-col items-center text-center mb-6">
+              <div className="w-12 h-12 rounded-xl bg-red-950/40 border border-red-500/30 flex items-center justify-center mb-4 shadow-[0_0_15px_rgba(239,68,68,0.25)] animate-pulse">
+                <Shield className="w-6 h-6 text-red-400" />
+              </div>
+              <h2 className="text-sm font-mono font-bold tracking-widest text-red-400 uppercase">
+                GİZLİLİK VE VERİ KİLİDİ AKTİF
+              </h2>
+              <p className="text-[10px] text-red-500/60 font-mono mt-1 uppercase tracking-wider">
+                PRIVACY DECRYPTION REQUIRED
+              </p>
+            </div>
+
+            <p className="text-xs text-cyan-300 mb-5 text-center leading-relaxed font-mono">
+              Web sitesindeki veri isimleri, başlıklar ve dosyalar kilitlenmiştir. İçeriği görüntülemek için lütfen Gizlilik Şifresini girin.
+            </p>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-[9px] font-mono font-bold text-cyan-600 uppercase tracking-widest mb-1.5">
+                  GİZLİLİK ŞİFRESİ
+                </label>
+                <input
+                  type="password"
+                  className="inp text-center tracking-widest font-mono text-cyan-100"
+                  value={privacyInput}
+                  onChange={e => setPrivacyInput(e.target.value)}
+                  placeholder="••••••"
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') {
+                      handlePrivacyUnlock()
+                    }
+                  }}
+                />
+              </div>
+
+              {privacyError && (
+                <div className="p-2.5 rounded bg-red-500/10 border border-red-500/20 text-red-400 text-[10px] font-mono text-center animate-slide-up">
+                  {privacyError}
+                </div>
+              )}
+
+              <button
+                onClick={handlePrivacyUnlock}
+                className="w-full btn-primary flex items-center justify-center gap-2 border-red-500/25 hover:border-red-500/40 text-red-400 hover:text-red-300 bg-red-500/5 hover:bg-red-500/10 transition-all font-mono text-xs"
+              >
+                <Zap className="w-4 h-4 text-red-400" />
+                VERİ KİLİDİNİ AÇ
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
