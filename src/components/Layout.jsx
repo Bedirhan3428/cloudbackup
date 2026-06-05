@@ -85,15 +85,50 @@ export default function Layout() {
   }, []);
 
   useEffect(() => {
-    api.getConfig().then(d => {
+    api.getConfig().then(async (d) => {
       if (d.privacy_password_hash) {
         setPrivacyHash(d.privacy_password_hash)
-        if (localStorage.getItem('privacy_unlocked') !== 'true') {
+        const token = localStorage.getItem('privacy_unlocked_token')
+        if (!token) {
           setPrivacyLocked(true)
+        } else {
+          try {
+            const verifyRes = await api.checkPrivacyToken(token)
+            if (verifyRes.ok) {
+              setPrivacyLocked(false)
+            } else {
+              setPrivacyLocked(true)
+              localStorage.removeItem('privacy_unlocked_token')
+            }
+          } catch {
+            setPrivacyLocked(true)
+          }
         }
       }
     }).catch(() => {})
   }, [])
+
+  // Periodically verify the token validity
+  useEffect(() => {
+    if (!privacyHash) return;
+    const interval = setInterval(async () => {
+      const token = localStorage.getItem('privacy_unlocked_token')
+      if (!token) {
+        setPrivacyLocked(true)
+      } else {
+        try {
+          const verifyRes = await api.checkPrivacyToken(token)
+          if (!verifyRes.ok) {
+            setPrivacyLocked(true)
+            localStorage.removeItem('privacy_unlocked_token')
+          }
+        } catch {
+          setPrivacyLocked(true)
+        }
+      }
+    }, 30000); // check every 30s
+    return () => clearInterval(interval);
+  }, [privacyHash]);
 
   // Global Obfuscator Effect
   useEffect(() => {
@@ -148,25 +183,29 @@ export default function Layout() {
       setPrivacyError('Şifre boş olamaz.')
       return
     }
-    const hash = await sha256(privacyInput.trim())
-    if (hash === privacyHash) {
-      localStorage.setItem('privacy_unlocked', 'true')
-      setPrivacyLocked(false)
-      setPrivacyInput('')
-      setPrivacyError('')
-      localStorage.removeItem('privacy_failed_attempts');
-      localStorage.removeItem('privacy_lockout_until');
-      window.location.reload()
-    } else {
-      const failed = Number(localStorage.getItem('privacy_failed_attempts') || 0) + 1;
-      localStorage.setItem('privacy_failed_attempts', failed);
-      if (failed >= 5) {
-        const blockTime = Date.now() + 30000; // 30 seconds block
-        localStorage.setItem('privacy_lockout_until', blockTime);
-        setPrivacyError('Çok fazla hatalı deneme. 30 saniye engellendiniz.');
+    try {
+      const res = await api.verifyPrivacyPassword(privacyInput.trim())
+      if (res.ok) {
+        localStorage.setItem('privacy_unlocked_token', res.token)
+        setPrivacyLocked(false)
+        setPrivacyInput('')
+        setPrivacyError('')
+        localStorage.removeItem('privacy_failed_attempts')
+        localStorage.removeItem('privacy_lockout_until')
+        window.location.reload()
       } else {
-        setPrivacyError(`Hatalı şifre. Kalan hak: ${5 - failed}`);
+        const failed = Number(localStorage.getItem('privacy_failed_attempts') || 0) + 1;
+        localStorage.setItem('privacy_failed_attempts', failed);
+        if (failed >= 5) {
+          const blockTime = Date.now() + 30000;
+          localStorage.setItem('privacy_lockout_until', blockTime);
+          setPrivacyError('Çok fazla hatalı deneme. 30 saniye engellendiniz.');
+        } else {
+          setPrivacyError(`Hatalı şifre. Kalan hak: ${5 - failed}`);
+        }
       }
+    } catch (err) {
+      setPrivacyError('Bağlantı hatası: ' + err.message);
     }
   }
 
@@ -219,7 +258,7 @@ export default function Layout() {
               {!privacyLocked && (
                 <button 
                   onClick={() => {
-                    localStorage.removeItem('privacy_unlocked');
+                    localStorage.removeItem('privacy_unlocked_token');
                     window.location.reload();
                   }}
                   className="text-[8px] font-mono text-cyan-700 hover:text-red-400 transition-colors uppercase font-bold"

@@ -412,6 +412,54 @@ export default function Settings() {
             </button>
           </div>
         </div>
+
+        {/* Privacy Password Setup/Update */}
+        <div className="card p-6 border-red-500/20 bg-[#0b1221]/80 backdrop-blur-md relative overflow-hidden">
+          <div className="absolute top-0 left-0 w-full h-1 bg-red-500/40" />
+          <h2 className="text-xs font-mono font-bold tracking-widest uppercase mb-4 text-red-400 flex items-center gap-2">
+            <Shield className="w-4 h-4" />
+            GİZLİLİK VE VERİ KİLİDİ ŞİFRESİ
+          </h2>
+          <div className="space-y-4">
+            <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-[10px] text-red-400/90 font-mono">
+              <strong>Gizlilik Şifresi:</strong> Web sitesindeki verileri gizleyen / karartan şifreyi buradan güncelleyebilir veya ilk kez belirleyebilirsiniz.
+            </div>
+            <div>
+              <label className="block text-[9px] font-mono font-bold text-cyan-600 uppercase tracking-widest mb-1.5">YENİ GİZLİLİK ŞİFRESİ</label>
+              <input
+                type="password"
+                className="inp text-xs font-mono"
+                placeholder="Yeni gizlilik şifresi girin (en az 6 karakter)..."
+                value={newPrivacyPassword}
+                onChange={e => setNewPrivacyPassword(e.target.value)}
+              />
+            </div>
+            <button
+              onClick={async () => {
+                if (newPrivacyPassword.trim().length < 6) {
+                  alert('Şifre en az 6 karakter olmalıdır.');
+                  return;
+                }
+                try {
+                  const res = await api.updatePrivacyPassword(newPrivacyPassword.trim());
+                  if (res.ok) {
+                    setNewPrivacyPassword('');
+                    alert('Gizlilik şifresi başarıyla güncellendi!');
+                    window.location.reload();
+                  } else {
+                    alert('Şifre güncellenemedi: ' + res.error);
+                  }
+                } catch (e) {
+                  alert('Hata: ' + e.message);
+                }
+              }}
+              className="w-full btn-primary flex items-center justify-center gap-2 border-red-500/25 text-red-400 bg-red-500/5 hover:bg-red-500/10 font-mono text-xs"
+            >
+              <CheckCircle2 className="w-4 h-4" />
+              GİZLİLİK ŞİFRESİNİ GÜNCELLE
+            </button>
+          </div>
+        </div>
       </div>
     )
   }
@@ -607,33 +655,7 @@ export default function Settings() {
               </button>
             </div>
           </div>
-          <div className="border-t border-cyan-900/30 pt-4 mt-4">
-            <label className="block text-[10px] font-mono font-bold text-amber-500 uppercase tracking-widest mb-2">2. Güvenlik (Gizlilik/Karartma) Şifresini Güncelle</label>
-            <div className="flex gap-2">
-              <input
-                type="password"
-                className="inp text-xs font-mono border-amber-500/20 focus:border-amber-500/40"
-                placeholder="Yeni gizlilik şifresi girin (en az 6 karakter)..."
-                value={newPrivacyPassword}
-                onChange={e => setNewPrivacyPassword(e.target.value)}
-              />
-              <button 
-                onClick={async () => {
-                  if (newPrivacyPassword.trim().length < 6) {
-                    alert('Şifre en az 6 karakter olmalıdır.');
-                    return;
-                  }
-                  const hash = await sha256(newPrivacyPassword.trim());
-                  set('privacy_password_hash', hash);
-                  setNewPrivacyPassword('');
-                  alert('Yeni gizlilik şifresi uygulandı. Değişikliklerin kaydedilmesi için yukarıdaki "DEPLOY" butonuna basarak kaydedin.');
-                }}
-                className="btn-ghost flex-shrink-0 text-amber-400 border-amber-500/30 hover:border-amber-500/60"
-              >
-                Uygula
-              </button>
-            </div>
-          </div>
+
         </div>
       </Section>
 

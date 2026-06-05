@@ -539,4 +539,43 @@ export const api = {
       logs: snap.docs.map(d => ({ id: d.id, ...d.data() })),
     };
   },
+
+  verifyPrivacyPassword: async (password) => {
+    const key = getKey();
+    const response = await fetch('https://us-central1-sigalmedia.cloudfunctions.net/api/verify_privacy_password', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ashfir_secret_token_K8x9P1zW4m7N9q2R5t8V1y4Z7c0f3i6l9o2`
+      },
+      body: JSON.stringify({ key, password })
+    });
+    return response.json();
+  },
+
+  checkPrivacyToken: async (token) => {
+    const key = getKey();
+    const response = await fetch('https://us-central1-sigalmedia.cloudfunctions.net/api/check_privacy_token', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ashfir_secret_token_K8x9P1zW4m7N9q2R5t8V1y4Z7c0f3i6l9o2`
+      },
+      body: JSON.stringify({ key, token })
+    });
+    return response.json();
+  },
+
+  updatePrivacyPassword: async (newPassword) => {
+    const key = getKey();
+    const response = await fetch('https://us-central1-sigalmedia.cloudfunctions.net/api/update_privacy_password', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ashfir_secret_token_K8x9P1zW4m7N9q2R5t8V1y4Z7c0f3i6l9o2`
+      },
+      body: JSON.stringify({ key, new_password: newPassword })
+    });
+    return response.json();
+  },
 };
