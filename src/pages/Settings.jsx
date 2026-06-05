@@ -291,7 +291,7 @@ export default function Settings() {
 
   if (!unlocked && (setupMode || cfg.settings_password_hash)) {
     return (
-      <div className="p-8 max-w-md mx-auto min-h-[400px] flex flex-col justify-center animate-fade-in" id="settings_lock_screen">
+      <div className="p-8 max-w-md mx-auto min-h-[400px] flex flex-col gap-6 justify-center animate-fade-in" id="settings_lock_screen">
         <div className="card p-6 border-cyan-500/20 bg-[#0b1221]/80 backdrop-blur-md relative overflow-hidden">
           <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-cyan-500 to-emerald-500" />
           
@@ -345,6 +345,39 @@ export default function Settings() {
             >
               {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Shield className="w-4 h-4" />}
               {setupMode ? 'ŞİFREYİ KAYDET VE KİLİTLE' : 'ERİŞİM YETKİSİNİ DOĞRULA'}
+            </button>
+          </div>
+        </div>
+
+        {/* Local Decryption Key */}
+        <div className="card p-6 border-amber-500/20 bg-[#0b1221]/80 backdrop-blur-md relative overflow-hidden">
+          <div className="absolute top-0 left-0 w-full h-1 bg-amber-500/40" />
+          <h2 className="text-xs font-mono font-bold tracking-widest uppercase mb-4 text-amber-400 flex items-center gap-2">
+            <Shield className="w-4 h-4" />
+            DECRYPTION & DOWNLOAD KEY
+          </h2>
+          <div className="space-y-4">
+            <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20 text-[10px] text-amber-400/90 font-mono">
+              <strong>Önemli:</strong> Dosyaları indirmek ve çözmek için gereken Özel Anahtar (Private Key) sadece tarayıcınızda (localStorage) saklanır. Şifreyi çözmek için anahtarınızı buraya kaydedebilirsiniz.
+            </div>
+            <div>
+              <label className="block text-[9px] font-mono font-bold text-cyan-600 uppercase tracking-widest mb-1.5">RSA PRIVATE KEY</label>
+              <textarea 
+                className="inp text-[10px] min-h-[100px] resize-y font-mono" 
+                value={privateKey} 
+                onChange={e => setPrivateKey(e.target.value)} 
+                placeholder={"-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----"} 
+              />
+            </div>
+            <button
+              onClick={() => {
+                localStorage.setItem('ashfir_private_key', privateKey.trim())
+                alert('Özel anahtar tarayıcıya başarıyla kaydedildi!')
+              }}
+              className="w-full btn-ghost flex items-center justify-center gap-2 border-amber-500/35 hover:border-amber-500/60 text-amber-400 font-mono text-xs"
+            >
+              <CheckCircle2 className="w-4 h-4" />
+              ANAHTARI TARAYICIYA KAYDET
             </button>
           </div>
         </div>
