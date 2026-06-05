@@ -542,7 +542,7 @@ export const api = {
 
   verifyPrivacyPassword: async (password) => {
     const key = getKey();
-    const response = await fetch('https://us-central1-sigalmedia.cloudfunctions.net/api/verify_privacy_password', {
+    const response = await fetch('https://api-6nhquhm3ga-uc.a.run.app/verify_privacy_password', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -555,7 +555,7 @@ export const api = {
 
   checkPrivacyToken: async (token) => {
     const key = getKey();
-    const response = await fetch('https://us-central1-sigalmedia.cloudfunctions.net/api/check_privacy_token', {
+    const response = await fetch('https://api-6nhquhm3ga-uc.a.run.app/check_privacy_token', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -568,7 +568,7 @@ export const api = {
 
   updatePrivacyPassword: async (newPassword) => {
     const key = getKey();
-    const response = await fetch('https://us-central1-sigalmedia.cloudfunctions.net/api/update_privacy_password', {
+    const response = await fetch('https://api-6nhquhm3ga-uc.a.run.app/update_privacy_password', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
