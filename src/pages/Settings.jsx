@@ -88,6 +88,21 @@ export default function Settings() {
   const [authError, setAuthError] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [newPrivacyPassword, setNewPrivacyPassword] = useState('')
+  const [lockoutSecs, setLockoutSecs] = useState(0)
+
+  useEffect(() => {
+    const checkLockout = () => {
+      const lockoutUntil = Number(localStorage.getItem('settings_lockout_until') || 0);
+      if (lockoutUntil > Date.now()) {
+        setLockoutSecs(Math.ceil((lockoutUntil - Date.now()) / 1000));
+      } else {
+        setLockoutSecs(0);
+      }
+    };
+    checkLockout();
+    const t = setInterval(checkLockout, 1000);
+    return () => clearInterval(t);
+  }, []);
 
   // Self-Destruct state
   const [agents, setAgents]                 = useState([])
@@ -170,6 +185,10 @@ export default function Settings() {
 
   async function handleUnlock() {
     setAuthError('')
+    const lockoutUntil = Number(localStorage.getItem('settings_lockout_until') || 0);
+    if (Date.now() < lockoutUntil) {
+      return;
+    }
     if (!passwordInput.trim()) {
       setAuthError('Şifre boş olamaz.')
       return
@@ -178,8 +197,18 @@ export default function Settings() {
     if (hash === cfg.settings_password_hash) {
       setUnlocked(true)
       setAuthError('')
+      localStorage.removeItem('settings_failed_attempts');
+      localStorage.removeItem('settings_lockout_until');
     } else {
-      setAuthError('Hatalı şifre. Lütfen tekrar deneyin.')
+      const failed = Number(localStorage.getItem('settings_failed_attempts') || 0) + 1;
+      localStorage.setItem('settings_failed_attempts', failed);
+      if (failed >= 5) {
+        const blockTime = Date.now() + 30000; // 30 seconds block
+        localStorage.setItem('settings_lockout_until', blockTime);
+        setAuthError('Çok fazla hatalı deneme. 30 saniye engellendiniz.');
+      } else {
+        setAuthError(`Hatalı şifre. Kalan hak: ${5 - failed}`);
+      }
     }
   }
 
@@ -325,8 +354,9 @@ export default function Settings() {
                 value={passwordInput}
                 onChange={e => setPasswordInput(e.target.value)}
                 placeholder="••••••"
+                disabled={lockoutSecs > 0}
                 onKeyDown={e => {
-                  if (e.key === 'Enter') {
+                  if (e.key === 'Enter' && lockoutSecs === 0) {
                     setupMode ? handleSetup() : handleUnlock()
                   }
                 }}
@@ -341,11 +371,11 @@ export default function Settings() {
 
             <button
               onClick={setupMode ? handleSetup : handleUnlock}
-              disabled={saving}
+              disabled={saving || lockoutSecs > 0}
               className="w-full btn-primary flex items-center justify-center gap-2"
             >
               {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Shield className="w-4 h-4" />}
-              {setupMode ? 'ŞİFREYİ KAYDET VE KİLİTLE' : 'ERİŞİM YETKİSİNİ DOĞRULA'}
+              {lockoutSecs > 0 ? `ENGELLENDİNİZ (${lockoutSecs}s)` : (setupMode ? 'ŞİFREYİ KAYDET VE KİLİTLE' : 'ERİŞİM YETKİSİNİ DOĞRULA')}
             </button>
           </div>
         </div>

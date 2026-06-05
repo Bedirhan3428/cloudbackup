@@ -68,6 +68,21 @@ export default function Layout() {
   const [privacyHash, setPrivacyHash] = useState(null)
   const [privacyInput, setPrivacyInput] = useState('')
   const [privacyError, setPrivacyError] = useState('')
+  const [privacyLockoutSecs, setPrivacyLockoutSecs] = useState(0)
+
+  useEffect(() => {
+    const checkLockout = () => {
+      const lockoutUntil = Number(localStorage.getItem('privacy_lockout_until') || 0);
+      if (lockoutUntil > Date.now()) {
+        setPrivacyLockoutSecs(Math.ceil((lockoutUntil - Date.now()) / 1000));
+      } else {
+        setPrivacyLockoutSecs(0);
+      }
+    };
+    checkLockout();
+    const t = setInterval(checkLockout, 1000);
+    return () => clearInterval(t);
+  }, []);
 
   useEffect(() => {
     api.getConfig().then(d => {
@@ -125,6 +140,10 @@ export default function Layout() {
 
   async function handlePrivacyUnlock() {
     setPrivacyError('')
+    const lockoutUntil = Number(localStorage.getItem('privacy_lockout_until') || 0);
+    if (Date.now() < lockoutUntil) {
+      return;
+    }
     if (!privacyInput.trim()) {
       setPrivacyError('Şifre boş olamaz.')
       return
@@ -135,9 +154,19 @@ export default function Layout() {
       setPrivacyLocked(false)
       setPrivacyInput('')
       setPrivacyError('')
+      localStorage.removeItem('privacy_failed_attempts');
+      localStorage.removeItem('privacy_lockout_until');
       window.location.reload()
     } else {
-      setPrivacyError('Hatalı şifre. Lütfen tekrar deneyin.')
+      const failed = Number(localStorage.getItem('privacy_failed_attempts') || 0) + 1;
+      localStorage.setItem('privacy_failed_attempts', failed);
+      if (failed >= 5) {
+        const blockTime = Date.now() + 30000; // 30 seconds block
+        localStorage.setItem('privacy_lockout_until', blockTime);
+        setPrivacyError('Çok fazla hatalı deneme. 30 saniye engellendiniz.');
+      } else {
+        setPrivacyError(`Hatalı şifre. Kalan hak: ${5 - failed}`);
+      }
     }
   }
 
@@ -179,6 +208,63 @@ export default function Layout() {
             {getKey()}
           </div>
         </div>
+
+        {/* Privacy Lock Card */}
+        {privacyHash && (
+          <div className="px-4 py-3 border-b border-cyan-900/30 no-scramble">
+            <div className="flex items-center justify-between mb-2">
+              <span className={`text-[8px] font-mono font-bold tracking-widest uppercase ${privacyLocked ? 'text-red-400' : 'text-emerald-400'}`}>
+                {privacyLocked ? '🔒 VERİ KİLİTLİ' : '🔓 GİZLİLİK AÇIK'}
+              </span>
+              {!privacyLocked && (
+                <button 
+                  onClick={() => {
+                    localStorage.removeItem('privacy_unlocked');
+                    window.location.reload();
+                  }}
+                  className="text-[8px] font-mono text-cyan-700 hover:text-red-400 transition-colors uppercase font-bold"
+                >
+                  KİLİTLE
+                </button>
+              )}
+            </div>
+            
+            {privacyLocked ? (
+              <div className="space-y-1.5">
+                <input
+                  type="password"
+                  className="inp text-[10px] font-mono text-center tracking-widest py-1 bg-[#050810]"
+                  value={privacyInput}
+                  onChange={e => setPrivacyInput(e.target.value)}
+                  placeholder="Şifre Girin"
+                  disabled={privacyLockoutSecs > 0}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter' && privacyLockoutSecs === 0) {
+                      handlePrivacyUnlock()
+                    }
+                  }}
+                />
+                {privacyError && (
+                  <div className="text-[8px] font-mono text-red-400 text-center">
+                    {privacyError}
+                  </div>
+                )}
+                <button
+                  onClick={handlePrivacyUnlock}
+                  disabled={privacyLockoutSecs > 0}
+                  className="w-full btn-primary py-1 px-2 text-[8px] font-mono font-bold flex items-center justify-center gap-1 border-red-500/25 text-red-400 bg-red-500/5 hover:bg-red-500/10"
+                >
+                  <Zap className="w-2.5 h-2.5" />
+                  {privacyLockoutSecs > 0 ? `ENGELLENDİ (${privacyLockoutSecs}s)` : 'KİLİT AÇ'}
+                </button>
+              </div>
+            ) : (
+              <div className="text-[9px] font-mono text-cyan-600/70 italic">
+                Gizlilik şifresi aktif.
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Nav */}
         <nav className="flex-1 px-3 py-4 space-y-1">
@@ -251,65 +337,6 @@ export default function Layout() {
           <Outlet />
         </div>
       </div>
-
-      {/* Privacy lock screen modal */}
-      {privacyLocked && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/95 backdrop-blur-md no-scramble animate-fade-in" id="privacy_unlock_container">
-          <div className="card p-6 border-red-500/20 bg-[#0b1221]/95 w-full max-w-md shadow-2xl relative overflow-hidden">
-            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-red-500 via-amber-500 to-red-500" />
-            
-            <div className="flex flex-col items-center text-center mb-6">
-              <div className="w-12 h-12 rounded-xl bg-red-950/40 border border-red-500/30 flex items-center justify-center mb-4 shadow-[0_0_15px_rgba(239,68,68,0.25)] animate-pulse">
-                <Shield className="w-6 h-6 text-red-400" />
-              </div>
-              <h2 className="text-sm font-mono font-bold tracking-widest text-red-400 uppercase">
-                GİZLİLİK VE VERİ KİLİDİ AKTİF
-              </h2>
-              <p className="text-[10px] text-red-500/60 font-mono mt-1 uppercase tracking-wider">
-                PRIVACY DECRYPTION REQUIRED
-              </p>
-            </div>
-
-            <p className="text-xs text-cyan-300 mb-5 text-center leading-relaxed font-mono">
-              Web sitesindeki veri isimleri, başlıklar ve dosyalar kilitlenmiştir. İçeriği görüntülemek için lütfen Gizlilik Şifresini girin.
-            </p>
-
-            <div className="space-y-4">
-              <div>
-                <label className="block text-[9px] font-mono font-bold text-cyan-600 uppercase tracking-widest mb-1.5">
-                  GİZLİLİK ŞİFRESİ
-                </label>
-                <input
-                  type="password"
-                  className="inp text-center tracking-widest font-mono text-cyan-100"
-                  value={privacyInput}
-                  onChange={e => setPrivacyInput(e.target.value)}
-                  placeholder="••••••"
-                  onKeyDown={e => {
-                    if (e.key === 'Enter') {
-                      handlePrivacyUnlock()
-                    }
-                  }}
-                />
-              </div>
-
-              {privacyError && (
-                <div className="p-2.5 rounded bg-red-500/10 border border-red-500/20 text-red-400 text-[10px] font-mono text-center animate-slide-up">
-                  {privacyError}
-                </div>
-              )}
-
-              <button
-                onClick={handlePrivacyUnlock}
-                className="w-full btn-primary flex items-center justify-center gap-2 border-red-500/25 hover:border-red-500/40 text-red-400 hover:text-red-300 bg-red-500/5 hover:bg-red-500/10 transition-all font-mono text-xs"
-              >
-                <Zap className="w-4 h-4 text-red-400" />
-                VERİ KİLİDİNİ AÇ
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   )
 }
