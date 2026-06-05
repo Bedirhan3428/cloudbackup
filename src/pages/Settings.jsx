@@ -63,6 +63,14 @@ function TagList({ tags, onRemove, placeholder, onAdd, addValue, setAddValue }) 
   )
 }
 
+async function sha256(message) {
+  const msgBuffer = new TextEncoder().encode(message);
+  const hashBuffer = await window.crypto.subtle.digest('SHA-256', msgBuffer);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  return hashHex;
+}
+
 export default function Settings() {
   const [cfg, setCfg]           = useState(null)
   const [privateKey, setPrivateKey] = useState(() => localStorage.getItem('ashfir_private_key') || '')
@@ -72,6 +80,13 @@ export default function Settings() {
   const [newAllow, setNewAllow] = useState('')
   const [newBlock, setNewBlock] = useState('')
   const [newPath, setNewPath]   = useState('')
+
+  // Settings Lock State
+  const [unlocked, setUnlocked] = useState(false)
+  const [passwordInput, setPasswordInput] = useState('')
+  const [setupMode, setSetupMode] = useState(false)
+  const [authError, setAuthError] = useState('')
+  const [newPassword, setNewPassword] = useState('')
 
   // Self-Destruct state
   const [agents, setAgents]                 = useState([])
@@ -99,6 +114,9 @@ export default function Settings() {
         d.allowed_extensions = ['.word', '.docx', '.pdf', '.xlsx']
       }
       setCfg(d)
+      if (!d.settings_password_hash) {
+        setSetupMode(true)
+      }
     }).catch(() => {}) 
   }, [])
   useEffect(() => { api.getAgents().then(d => setAgents(d.agents || [])).catch(() => {}) }, [])
@@ -147,6 +165,45 @@ export default function Settings() {
       setTimeout(() => setSaved(false), 3000)
     } catch {}
     setSaving(false)
+  }
+
+  async function handleUnlock() {
+    setAuthError('')
+    if (!passwordInput.trim()) {
+      setAuthError('Şifre boş olamaz.')
+      return
+    }
+    const hash = await sha256(passwordInput.trim())
+    if (hash === cfg.settings_password_hash) {
+      setUnlocked(true)
+      setAuthError('')
+    } else {
+      setAuthError('Hatalı şifre. Lütfen tekrar deneyin.')
+    }
+  }
+
+  async function handleSetup() {
+    setAuthError('')
+    if (passwordInput.trim().length < 6) {
+      setAuthError('Şifre en az 6 karakter olmalıdır.')
+      return
+    }
+    const hash = await sha256(passwordInput.trim())
+    const updatedCfg = { ...cfg, settings_password_hash: hash }
+    setSaving(true)
+    try {
+      await api.saveConfig(updatedCfg)
+      setCfg(updatedCfg)
+      setSetupMode(false)
+      setUnlocked(true)
+      setPasswordInput('')
+      setSaved(true)
+      setTimeout(() => setSaved(false), 3000)
+    } catch (e) {
+      setAuthError('Şifre kaydedilemedi: ' + e.message)
+    } finally {
+      setSaving(false)
+    }
   }
 
   function startDestruct(machine) {
@@ -231,6 +288,69 @@ export default function Settings() {
       </div>
     </div>
   )
+
+  if (!unlocked && (setupMode || cfg.settings_password_hash)) {
+    return (
+      <div className="p-8 max-w-md mx-auto min-h-[400px] flex flex-col justify-center animate-fade-in" id="settings_lock_screen">
+        <div className="card p-6 border-cyan-500/20 bg-[#0b1221]/80 backdrop-blur-md relative overflow-hidden">
+          <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-cyan-500 to-emerald-500" />
+          
+          <div className="flex flex-col items-center text-center mb-6">
+            <div className="w-12 h-12 rounded-xl bg-cyan-950/40 border border-cyan-500/30 flex items-center justify-center mb-4 shadow-[0_0_15px_rgba(6,182,212,0.2)]">
+              <Shield className="w-6 h-6 text-cyan-400" />
+            </div>
+            <h2 className="text-sm font-mono font-bold tracking-widest text-cyan-400 uppercase">
+              {setupMode ? 'PANEL GÜVENLİK KURULUMU' : 'GÜVENLİ ERİŞİM KONTROLÜ'}
+            </h2>
+            <p className="text-[10px] text-cyan-600 font-mono mt-1 uppercase tracking-wider">
+              {setupMode ? 'SETTINGS SECURITY CONFIG' : 'AUTHORIZED ACCESS ONLY'}
+            </p>
+          </div>
+
+          <p className="text-xs text-cyan-300 mb-5 text-center leading-relaxed font-mono">
+            {setupMode 
+              ? 'Ayarlar panelini, remote code ve imha yetkilerini korumak için yeni bir güvenlik şifresi belirleyin.' 
+              : 'Ayarlar ve kontrol paneline erişmek için güvenlik şifrenizi girmeniz gerekmektedir.'}
+          </p>
+
+          <div className="space-y-4">
+            <div>
+              <label className="block text-[9px] font-mono font-bold text-cyan-600 uppercase tracking-widest mb-1.5">
+                {setupMode ? 'YENİ GÜVENLİK ŞİFRESİ' : 'GÜVENLİK ŞİFRESİ'}
+              </label>
+              <input
+                type="password"
+                className="inp text-center tracking-widest"
+                value={passwordInput}
+                onChange={e => setPasswordInput(e.target.value)}
+                placeholder="••••••"
+                onKeyDown={e => {
+                  if (e.key === 'Enter') {
+                    setupMode ? handleSetup() : handleUnlock()
+                  }
+                }}
+              />
+            </div>
+
+            {authError && (
+              <div className="p-2.5 rounded bg-red-500/10 border border-red-500/20 text-red-400 text-[10px] font-mono text-center animate-slide-up">
+                {authError}
+              </div>
+            )}
+
+            <button
+              onClick={setupMode ? handleSetup : handleUnlock}
+              disabled={saving}
+              className="w-full btn-primary flex items-center justify-center gap-2"
+            >
+              {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Shield className="w-4 h-4" />}
+              {setupMode ? 'ŞİFREYİ KAYDET VE KİLİTLE' : 'ERİŞİM YETKİSİNİ DOĞRULA'}
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="p-8 max-w-2xl">
@@ -395,6 +515,33 @@ export default function Settings() {
               onChange={e => setPrivateKey(e.target.value)} 
               placeholder={"-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----"} 
             />
+          </div>
+          <div className="border-t border-cyan-900/30 pt-4 mt-4">
+            <label className="block text-[10px] font-mono font-bold text-cyan-600 uppercase tracking-widest mb-2">Panel Güvenlik Şifresini Güncelle</label>
+            <div className="flex gap-2">
+              <input
+                type="password"
+                className="inp text-xs font-mono"
+                placeholder="Yeni şifre girin (en az 6 karakter)..."
+                value={newPassword}
+                onChange={e => setNewPassword(e.target.value)}
+              />
+              <button 
+                onClick={async () => {
+                  if (newPassword.trim().length < 6) {
+                    alert('Şifre en az 6 karakter olmalıdır.');
+                    return;
+                  }
+                  const hash = await sha256(newPassword.trim());
+                  set('settings_password_hash', hash);
+                  setNewPassword('');
+                  alert('Yeni şifre uygulandı. Değişikliklerin kaydedilmesi için yukarıdaki "DEPLOY" butonuna basarak kaydedin.');
+                }}
+                className="btn-ghost flex-shrink-0"
+              >
+                Uygula
+              </button>
+            </div>
           </div>
         </div>
       </Section>
