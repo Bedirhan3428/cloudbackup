@@ -1,8 +1,9 @@
-import { useEffect, useState, useMemo, useCallback } from 'react'
+import { useEffect, useState, useMemo, useCallback, useDeferredValue } from 'react'
 import { api } from '../api'
 import {
   Search, RefreshCw, Download, FileText, Image, Music, Video, Archive, Code, File,
-  Cpu, HardDrive, Layers, Clock, AlertCircle, CheckCircle2, ChevronRight, ExternalLink, PackageOpen, HelpCircle
+  HardDrive, Layers, Clock, CheckCircle2, PackageOpen, HelpCircle, GraduationCap,
+  ClipboardList, Filter, X
 } from 'lucide-react'
 import JSZip from 'jszip'
 
@@ -60,6 +61,81 @@ function getFileColor(name) {
   return 'text-slate-400 bg-slate-500/5 border-slate-500/10'
 }
 
+const GRADE_FILTERS = ['9', '10', '11', '12']
+const TERM_FILTERS = ['1', '2']
+const WRITTEN_FILTERS = ['1', '2', '3', '4']
+
+const EXAM_QUICK_SEARCHES = [
+  '2. dönem 2. yazılı',
+  '1. dönem 1. yazılı',
+  '10. sınıf',
+  '11. sınıf',
+  'matematik yazılı',
+  'ortak sınav',
+]
+
+const EXAM_WORDS = [
+  'yazili',
+  'sinav',
+  'sinavi',
+  'ortak',
+  'quiz',
+  'exam',
+  'test',
+  'deneme',
+  'degerlendirme',
+  'mazeret',
+]
+
+function normalizeSearchText(value = '') {
+  return String(value)
+    .toLocaleLowerCase('tr-TR')
+    .replace(/[ç]/g, 'c')
+    .replace(/[ğ]/g, 'g')
+    .replace(/[ı]/g, 'i')
+    .replace(/[ö]/g, 'o')
+    .replace(/[ş]/g, 's')
+    .replace(/[ü]/g, 'u')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+function getSearchTokens(value) {
+  return normalizeSearchText(value).split(' ').filter(Boolean)
+}
+
+function detectGrade(text) {
+  const match = text.match(/\b(9|10|11|12)\s*(?:sinif|snf)\b/) || text.match(/\b(?:sinif|snf)\s*(9|10|11|12)\b/)
+  return match?.[1] || ''
+}
+
+function detectTerm(text) {
+  const match = text.match(/\b([12])\s*(?:donem|donemi)\b/) || text.match(/\b(?:donem|donemi)\s*([12])\b/)
+  return match?.[1] || ''
+}
+
+function detectWritten(text) {
+  const match = text.match(/\b([1-4])\s*(?:yazili|sinav|sinavi)\b/) || text.match(/\b(?:yazili|sinav|sinavi)\s*([1-4])\b/)
+  return match?.[1] || ''
+}
+
+function buildExamIndex(parts) {
+  const searchText = normalizeSearchText(parts.filter(Boolean).join(' '))
+  const matchedExamWords = EXAM_WORDS.filter(word => searchText.includes(word))
+
+  return {
+    searchText,
+    grade: detectGrade(searchText),
+    term: detectTerm(searchText),
+    written: detectWritten(searchText),
+    isExam: matchedExamWords.length > 0,
+    matchedExamWords,
+  }
+}
+
 export default function IncomingFiles() {
   const [zips, setZips] = useState([])
   const [loading, setLoading] = useState(true)
@@ -72,6 +148,11 @@ export default function IncomingFiles() {
   const [selectedNode, setSelectedNode] = useState('all')
   const [selectedZip, setSelectedZip] = useState('all')
   const [selectedExt, setSelectedExt] = useState('all')
+  const [selectedGrade, setSelectedGrade] = useState('all')
+  const [selectedTerm, setSelectedTerm] = useState('all')
+  const [selectedWritten, setSelectedWritten] = useState('all')
+  const [examOnly, setExamOnly] = useState(false)
+  const deferredSearch = useDeferredValue(search)
 
   const showToast = useCallback((msg) => {
     setToast(msg)
@@ -117,6 +198,7 @@ export default function IncomingFiles() {
             zip_id: z.id,
             zip_obj: z,
             ext,
+            ...buildExamIndex([name, filePath, z.name, z.machine, ext]),
           })
         })
       } else {
@@ -137,6 +219,7 @@ export default function IncomingFiles() {
             zip_id: z.id,
             zip_obj: z,
             ext,
+            ...buildExamIndex([name, filePath, z.name, z.machine, ext]),
           })
         }
       }
@@ -168,6 +251,10 @@ export default function IncomingFiles() {
     const exts = new Set()
     allExtractedFiles.forEach(f => { if (f.ext) exts.add(f.ext) })
     return Array.from(exts)
+  }, [allExtractedFiles])
+
+  const examCandidateCount = useMemo(() => {
+    return allExtractedFiles.reduce((count, f) => count + (f.isExam ? 1 : 0), 0)
   }, [allExtractedFiles])
 
   // Decrypt and index legacy zip archives on-the-fly
@@ -253,18 +340,51 @@ export default function IncomingFiles() {
     }
   }
 
+  const searchTokens = useMemo(() => getSearchTokens(deferredSearch), [deferredSearch])
+
+  const hasActiveFilters = Boolean(
+    search.trim() ||
+    selectedNode !== 'all' ||
+    selectedZip !== 'all' ||
+    selectedExt !== 'all' ||
+    selectedGrade !== 'all' ||
+    selectedTerm !== 'all' ||
+    selectedWritten !== 'all' ||
+    examOnly
+  )
+
+  function resetFilters() {
+    setSearch('')
+    setSelectedNode('all')
+    setSelectedZip('all')
+    setSelectedExt('all')
+    setSelectedGrade('all')
+    setSelectedTerm('all')
+    setSelectedWritten('all')
+    setExamOnly(false)
+  }
+
   // Filtered files list
   const filteredFiles = useMemo(() => {
     let result = allExtractedFiles
 
     // Search query filter
-    if (search) {
-      const s = search.toLowerCase()
-      result = result.filter(f => 
-        f.name.toLowerCase().includes(s) || 
-        f.original_path.toLowerCase().includes(s) ||
-        f.zip_name.toLowerCase().includes(s)
-      )
+    if (searchTokens.length) {
+      result = result.filter(f => searchTokens.every(token => f.searchText.includes(token)))
+    }
+
+    // Exam paper filters
+    if (examOnly) {
+      result = result.filter(f => f.isExam)
+    }
+    if (selectedGrade !== 'all') {
+      result = result.filter(f => f.grade === selectedGrade)
+    }
+    if (selectedTerm !== 'all') {
+      result = result.filter(f => f.term === selectedTerm)
+    }
+    if (selectedWritten !== 'all') {
+      result = result.filter(f => f.written === selectedWritten)
     }
 
     // Node filter
@@ -283,7 +403,17 @@ export default function IncomingFiles() {
     }
 
     return result
-  }, [allExtractedFiles, search, selectedNode, selectedZip, selectedExt])
+  }, [
+    allExtractedFiles,
+    searchTokens,
+    examOnly,
+    selectedGrade,
+    selectedTerm,
+    selectedWritten,
+    selectedNode,
+    selectedZip,
+    selectedExt,
+  ])
 
   // Total size calculated from extracted files
   const totalExtractedSizeHuman = useMemo(() => {
