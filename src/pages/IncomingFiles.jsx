@@ -656,7 +656,7 @@ export default function IncomingFiles() {
                 <PackageOpen className="w-16 h-16 mb-4 text-cyan-900/55" />
                 <h3 className="font-mono tracking-wider uppercase mb-1 text-cyan-500 text-sm font-bold">Veri Bulunamadı</h3>
                 <p className="text-[10px] max-w-md text-center text-cyan-700/80 px-4">
-                  {search || selectedNode !== 'all' || selectedZip !== 'all' || selectedExt !== 'all'
+                  {hasActiveFilters
                     ? 'Seçilen filtrelere uyan hiçbir ayıklanmış dosya bulunamadı. Filtreleri sıfırlamayı deneyin.'
                     : 'Henüz hiçbir arşiv çözümlenip sisteme işlenmemiş veya gelen zip dosyası yok. Yan panelden eski zipleri çözebilirsin.'}
                 </p>
@@ -677,6 +677,12 @@ export default function IncomingFiles() {
                 <tbody className="divide-y divide-cyan-950/20">
                   {filteredFiles.map(f => {
                     const isDownloading = downloadingFileId === f.id
+                    const examTags = [
+                      f.grade ? `${f.grade}. Sınıf` : '',
+                      f.term ? `${f.term}. Dönem` : '',
+                      f.written ? `${f.written}. Yazılı` : '',
+                      f.isExam && !f.written ? 'Sınav' : '',
+                    ].filter(Boolean)
                     return (
                       <tr 
                         key={f.id} 
@@ -689,9 +695,23 @@ export default function IncomingFiles() {
                             <div className={`p-1.5 rounded border flex-shrink-0 ${getFileColor(f.name)}`}>
                               {getFileIcon(f.name)}
                             </div>
-                            <span className="font-bold text-cyan-100 truncate max-w-[180px] sm:max-w-[240px]" title={f.name}>
-                              {f.name}
-                            </span>
+                            <div className="min-w-0">
+                              <span className="block font-bold text-cyan-100 truncate max-w-[180px] sm:max-w-[240px]" title={f.name}>
+                                {f.name}
+                              </span>
+                              {examTags.length > 0 && (
+                                <div className="mt-1 flex flex-wrap gap-1">
+                                  {examTags.map(tag => (
+                                    <span
+                                      key={`${f.id}-${tag}`}
+                                      className="rounded border border-emerald-500/20 bg-emerald-500/10 px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wide text-emerald-300"
+                                    >
+                                      {tag}
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
                           </div>
                         </td>
 
