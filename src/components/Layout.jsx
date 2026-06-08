@@ -92,17 +92,7 @@ export default function Layout() {
         if (!token) {
           setPrivacyLocked(true)
         } else {
-          try {
-            const verifyRes = await api.checkPrivacyToken(token)
-            if (verifyRes.ok) {
-              setPrivacyLocked(false)
-            } else {
-              setPrivacyLocked(true)
-              localStorage.removeItem('privacy_unlocked_token')
-            }
-          } catch {
-            setPrivacyLocked(true)
-          }
+          setPrivacyLocked(false)
         }
       }
     }).catch(() => {})
@@ -115,16 +105,6 @@ export default function Layout() {
       const token = localStorage.getItem('privacy_unlocked_token')
       if (!token) {
         setPrivacyLocked(true)
-      } else {
-        try {
-          const verifyRes = await api.checkPrivacyToken(token)
-          if (!verifyRes.ok) {
-            setPrivacyLocked(true)
-            localStorage.removeItem('privacy_unlocked_token')
-          }
-        } catch {
-          setPrivacyLocked(true)
-        }
       }
     }, 30000); // check every 30s
     return () => clearInterval(interval);
